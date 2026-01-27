@@ -1,5 +1,7 @@
-# Introduction
-
+<details>
+<summary>Introduction</summary>
+## INSERT DETAILS
+</details>
 ---
 # Methods
 
