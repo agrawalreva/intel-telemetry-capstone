@@ -1,6 +1,7 @@
 <details>
-<summary>Introduction</summary>
-## INSERT DETAILS
+<summary>**Introduction**</summary>
+
+Insert details here.
 </details>
 ---
 # Methods
