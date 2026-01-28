@@ -1,9 +1,10 @@
 ---
-title: "Balancing Privacy and Utility: Differentially Private Synthetic Data Generation for Intel Telemetry"
+title: "Balancing Privacy and Utility"
+description: "Differentially Private Synthetic Data Generation for Intel Telemetry"
 layout: default
 ---
 
-# Introduction..
+# Introduction.
 Intel has established itself as a tech industry giant due to their influence in chip manufacturing for the last few decades. The company develops a massive amount of chips--CPUs, GPUs, NPUs, etc.--which are integrated into PCs for the end-user. These PCs are manufactured by Original Equipment Manufacturers (OEMs)--Lenovo, HP, Dell, ASUS, etc.--who create the bulk of the equipment and distribute to customers. 
 
 Since Intel distributes their products to OEMs, they cannot collect data about device usage directly from the PCs. As a result, Intel developed a way to obtain data through the processors (CPUs) themselves. Intel collects large-scale telemetry data from PCs using their processors to track application usage, performance metrics, and simple diagnostic information. To give a simplified example, given the consent of user $u$, Intel would collect data saying that $u$ opened application $x$ at time $t$. They would collect similar information specifying what time application $x$ was closed. In total, Intel's processors collect data for the following events: application open, application close, file save, system reset, error. This information allows Intel to address issues with their products and understand customer behavior.
