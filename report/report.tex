@@ -1,0 +1,171 @@
+% !TEX TS-program = xelatex
+% !BIB TS-program = bibtex
+\documentclass[12pt,letterpaper]{article}
+\usepackage{style/dsc180reportstyle} % import dsc180reportstyle.sty
+\usepackage{graphicx} % for including images
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Title and Authors
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Balancing Privacy and Utility: Differentially Private Synthetic Telemetry Data Generation}
+
+\author{
+\textbf{Reva Agrawal} \\
+{\tt ragrawal@ucsd.edu}
+\and
+\textbf{Jordan Lambino} \\
+{\tt jlambino@ucsd.edu}
+\and
+\textbf{Dhruv Patel} \\
+{\tt dhp005@ucsd.edu}
+\and
+\textbf{Yu-Xiang Wang} \\
+{\tt yuxiangw@ucsd.edu}
+\and
+\textbf{Bijan Arbab} \\
+{\tt barbab@ucsd.edu}
+}
+
+\begin{document}
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Abstract and Links
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{abstract}
+This research investigates the feasibility and accuracy of generating synthetic datasets that preserve privacy while maintaining statistical utility, using Intel telemetry data as a case study. The data encompasses device- and user-level event logs used for product health, diagnostics, and quality monitoring. Our primary goal is to explore how well differentially private mechanisms, including those inspired by the Private Evolution line of work, can reproduce key analytical quantities without compromising user-level privacy. By comparing results on the original data with those on synthetic or DP-noisy data using metrics aligned to prior analytical queries, we aim to evaluate the trade-off between privacy protection and data utility. The results will help determine whether differential privacy can support the release of realistic yet privacy-preserving telemetry data for product analytics and quality monitoring.
+\end{abstract}
+
+\begin{center}
+Code: \url{https://github.com/agrawalreva/intel-telemetry-capstone}
+
+Website: \url{}
+\end{center}
+
+\maketoc
+\clearpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Main Contents
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+
+Privacy concerns have become increasingly critical in data-driven software environments, where telemetry data often includes highly sensitive user-level event logs that can reveal individual usage patterns, product preferences, and behavioral characteristics. Even when telemetry datasets are anonymized, there remains a significant risk of re-identification through auxiliary information or linkage attacks. To address this challenge, our research explores how differential privacy (DP) can be used to generate synthetic datasets that protect individual user records while maintaining the analytical value of the underlying data for product quality monitoring and error rate analysis.
+
+We focus on Intel telemetry data, which supports product health, diagnostics, and quality monitoring through device-level and user-level event logs. Our analytical setting uses a specialized schema derived from queries that Intel has employed in prior studies; the goal is to compute and preserve key metrics and query outcomes that are essential for identifying problematic products and prioritizing quality improvements.
+
+We apply both baseline differentially private mechanisms (such as adding calibrated noise to counts) and advanced synthetic data generation techniques to produce privacy-preserving versions of the dataset. We then evaluate how closely the synthetic data aligns with the original in terms of statistical relationships, error rate distributions, and the ability to identify products with anomalously high error rates through z-score analysis. This evaluation provides a foundation for future privacy-preserving data sharing in software analytics and product quality monitoring.
+
+\subsection{Literature Review}
+Previous researchers have explored differential privacy for various data types, with particular attention to text data and structured datasets. As mentioned in the context of text data, differential privacy is paramount particularly in domains where individuals' information can be recovered after model training. Part of this problem stems from the fact that some applications are trained using private data, which could be completely recalled or leaked by the model. A popular method in response to this issue involves fine-tuning language models and using DP-SGD (Differential Privacy - Stochastic Gradient Descent) for synthetic text generation. Despite the proven guarantee of differential privacy, the DP-SGD fine-tuning approach is computationally demanding and therefore lacks scalability.
+
+The paper in question proposes a method of ensuring privacy by creating a synthetic dataset which retains important aggregate information while protecting the data of any one individual. To combat this issue of excessive resource use, the authors propose a method in \cite{xie2024differentially} which utilizes model API access in order to generate differentially private synthetic text data, rather than relying on access to the model weights.
+
+The authors leverage an established method, Private Evolution, previously used to generate DP synthetic images. However, this approach cannot be applied directly to text data due to variable lengths. The authors suggest AUG-PE (Augmented Private Evolution) as an alternative to work with text data, accounting for increased complexity. The AUG-PE algorithm relies on three primary elements:
+
+\begin{enumerate}
+    \item RANDOM\_API: This component uses the model API to produce random samples from prompts. In this step, each prompt includes a particular class label and/or subcategories (named "pseudo-classes") for increased diversity. For example, prompts about "movies" may include subcategories such as "horror films" or "documentaries" to generate a diverse, initial set of candidates.
+    \item DP\_NN\_HISTOGRAM: The purpose of this step is to privately select samples for post-processing. In essence, this process functions by conducting "nearest neighbor" votes for each sample, and creating a histogram based on those votes. This step guarantees differential privacy by adding Gaussian noise to those vote counts, prior to histogram generation.
+    \item VARIATION\_API: This step adds an additional element of randomness to the synthetic samples; in other words, this part of the algorithm generates "variations" of the input samples. The authors input "paraphrasing" and "fill-in-the-blanks" prompts into the model for this component of AUG-PE. Through this process, the algorithm adds variance to the text samples while retaining important characteristics.
+\end{enumerate}
+
+The authors apply the AUG-PE algorithm to Yelp Review, OpenReview, and PubMed datasets. For text generation capabilities, the authors primarily leverage GPT-2, GPT-2-Medium, GPT-2-Large, and GPT-3.5, among several other models. As part of the model selection process, the authors test on a combination of open-source and closed-source models, displaying the flexibility of API-access-only approaches. As a result of their experiments, the authors found that AUG-PE generates high-utility, differentially private text data. On top of the differential privacy guarantee, AUG-PE, in comparison to DP fine-tuning approaches which require model weight access, showed to be much more efficient. The authors' experiments demonstrate the power of leveraging LLMs for DP synthetic text generation, revealing that API-access provides a much more scalable solution in comparison to known "state-of-the-art" approaches.
+
+For structured event log data like telemetry, similar principles apply: we need mechanisms that can preserve aggregate statistics (such as error rates and event counts) while protecting individual user records. The Gaussian mechanism and Laplace mechanism are commonly used for count queries and statistical summaries, which are central to our telemetry analysis.
+
+\subsection{Dataset Description}
+
+Our data is drawn from Intel telemetry. We work with a specialized schema derived from analytical queries used in prior Intel studies; this schema restricts the corpus to the tables needed to reproduce those analyses, making large-scale experimentation tractable. We develop and validate our pipeline on a subsample before running on the full specialized dataset.
+
+Differential privacy is especially relevant for telemetry data because events are often tied to devices or users over time. Even after removing direct identifiers, sequences of events can support re-identification or inference of sensitive behavior. Applying DP to telemetry, whether via noisy query answers or via synthetic data generation, provides a formal guarantee that the output does not depend too strongly on any single individual's or device's contribution, which helps protect against reconstruction and linkage attacks while still allowing aggregate and distributional analysis.
+
+\section{Methods}
+
+\subsection{Data Preprocessing}
+
+% (To be filled.)
+
+\subsection{Summary Statistics and Key Metrics}
+
+% (To be filled.)
+
+\subsection{Differential Privacy Mechanisms}
+\label{sec:methods}
+
+% (To be filled.)
+
+\subsection{Evaluation Metrics}
+\label{sec:eval_metrics}
+
+% (To be filled.)
+
+\section{Results}
+
+\subsection{Subsample (14\,GB) Pipeline}
+
+% (To be filled.)
+
+\subsection{Full Schema Results}
+
+% (To be filled.)
+
+\section{Discussion}
+
+% (To be filled.)
+
+\section{Conclusion}
+
+\subsection{Key Findings}
+
+% (To be filled.)
+
+\subsection{Contributions}
+
+\begin{itemize}
+    \item \textbf{Reva Agrawal}: 
+    \item \textbf{Dhruv Patel}: 
+    \item \textbf{Jordan Lambino}: 
+\end{itemize}
+
+\subsection{Future Work}
+
+% (To be filled.)
+
+\subsection{Final Remarks}
+
+% (To be filled.)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Reference / Bibliography
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\makereference
+\nocite{*}
+
+\bibliography{reference}
+\bibliographystyle{style/dsc180bibstyle}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Appendix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+\makeappendix
+
+\subsection{Project Proposal}
+% (To be filled.)
+
+\subsection{Additional Results}
+% (To be filled.)
+
+\subsection{Training Details}
+% (To be filled.)
+
+\subsection{Additional Figures}
+% (To be filled.)
+
+
+\end{document}
