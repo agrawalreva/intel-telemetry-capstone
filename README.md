@@ -55,34 +55,32 @@ This project implements a complete differential privacy pipeline for analyzing I
 differential-privacy-pipeline/
 │
 ├── README.md                          # This file - build instructions
-├── DATABASE_DOCUMENTATION.md          # Detailed database architecture
 ├── requirements.txt                   # Python dependencies
 ├── environment.yml                    # Conda environment specification
 │
-├── data/                              # Data directory (git ignored)
-│   ├── baseline_mini/                # Baseline query results (subsample)
-│   ├── baseline_full/                # Baseline query results (full)
-│   ├── dp_gaussian_mini/             # Gaussian DP results (subsample)
-│   │   ├── eps_0.1/                  # ε=0.1 (strong privacy)
-│   │   ├── eps_0.5/                  # ε=0.5
-│   │   ├── eps_1.0/                  # ε=1.0
-│   │   ├── eps_2.0/                  # ε=2.0 (default)
-│   │   ├── eps_5.0/                  # ε=5.0
-│   │   ├── eps_10.0/                 # ε=10.0
-│   │   ├── eps_20.0/                 # ε=20.0 (weak privacy)
-│   │   └── eps_inf/                  # ε=∞ (no noise baseline)
-│   ├── dp_gaussian_full/             # Gaussian DP results (full)
-│   ├── dp_laplace_mini/              # Laplace DP results (subsample)
-│   ├── dp_laplace_full/              # Laplace DP results (full)
-│   └── evaluation_results/           # Evaluation outputs
-│       ├── gaussian_mini_evaluation.csv
-│       ├── laplace_mini_evaluation.csv
-│       └── figures/
+├── data/                              # Data directory (there will be sinthetic data and not the onrignial baseline results)
+│   ├── baseline_mini/                # Baseline query results (subsample) (coming soon)
+│   ├── baseline_full/                # Baseline query results (full) (coming soon)
+│   ├── dp_gaussian_mini/             # Gaussian DP results (subsample) (coming soon)
+│   │   ├── eps_0.1/                  # ε=0.1 (strong privacy) (coming soon)
+│   │   ├── eps_0.5/                  # ε=0.5 (coming soon)
+│   │   ├── eps_1.0/                  # ε=1.0 (coming soon)
+│   │   ├── eps_2.0/                  # ε=2.0 (default) (coming soon)
+│   │   ├── eps_5.0/                  # ε=5.0 (coming soon)
+│   │   ├── eps_10.0/                 # ε=10.0 (coming soon)
+│   │   ├── eps_20.0/                 # ε=20.0 (weak privacy) (coming soon)
+│   │   └── eps_inf/                  # ε=∞ (no noise baseline) (coming soon)
+│   ├── dp_gaussian_full/             # Gaussian DP results (full) (coming soon)
+│   ├── dp_laplace_mini/              # Laplace DP results (subsample) (coming soon)
+│   ├── dp_laplace_full/              # Laplace DP results (full) (coming soon)
+│   └── evaluation_results/           # Evaluation outputs (coming soon)
+│       ├── gaussian_mini_evaluation.csv (coming soon)
+│       ├── laplace_mini_evaluation.csv (coming soon)
+│       └── figures/ (coming soon)
 │
 ├── scripts/                           # Python scripts
 │   ├── export_baseline.py            # Export query results to CSV
 │   ├── dp_mechanisms/                # ⭐ DP mechanisms package
-│   │   ├── __init__.py
 │   │   ├── dp_config.py              # Shared configuration
 │   │   ├── dp_gaussian_mechanism.py  # Gaussian (ε,δ)-DP
 │   │   └── dp_laplace_mechanism.py   # Laplace ε-DP
@@ -95,22 +93,6 @@ differential-privacy-pipeline/
 │   ├── 00_build_reporting_tables.sql # Build 22 reporting tables
 │   ├── 01_validation.sql             # Validate data quality
 │   └── 02_analysis_queries.sql       # 22 benchmark queries
-│
-├── docs/                              # Additional documentation
-│   ├── COMPLETE_DP_PIPELINE.md       # End-to-end pipeline guide
-│   ├── TWO_BRANCH_PIPELINE.md        # Two-branch strategy details
-│   ├── FIX_CSV_ERROR.md              # Troubleshooting guide
-│   └── FIX_COLUMN_NAME.md            # Data quality issues
-│
-├── notebooks/                         # Jupyter notebooks (optional)
-│   ├── 01_exploratory_analysis.ipynb
-│   ├── 02_dp_mechanism_testing.ipynb
-│   └── 03_final_evaluation.ipynb
-│
-└── results/                           # Generated outputs (not in git)
-    ├── evaluation_mini/              # Subsample evaluation results
-    ├── evaluation_full/              # Full database evaluation results
-    └── figures/                      # Generated plots and visualizations
 ```
 
 ### Files Not in Repository (Git Ignored)
