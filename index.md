@@ -15,7 +15,11 @@ Differential Privacy (DP) offers a mathematical framework to address this challe
 
 ---
 # Methods
-*insert methods details*
+Our pipeline begins with raw Intel telemetry data accessed through Globus, consisting of 23 source tables spread across two schemas (university_analysis_pad and university_prod). To enable efficient development, we first built two versions of the database using DuckDB: a subsample database (~5 GB, capped at 200 MB per table) for rapid iteration, and a full database (~3.6 TB) reserved for production runs. On top of these raw tables, we constructed a reporting layer of 22 pre-aggregated tables using a SQL build script (00_build_reporting_tables.sql), which resolves joins, normalizes column names, and structures the data for analytics queries. 
+
+From this reporting layer, we wrote 12 benchmark queries covering a range of analytical stories  battery usage by geography and CPU family, display device vendor market share, browser popularity by country, OS-level MODS blockers, RAM utilization distributions, persona-level web category usage, and process power rankings  and exported their results to CSV files as our privacy-free baseline. With the baseline established, we implemented two differential privacy mechanisms by hand (without external DP libraries), a Gaussian mechanism providing (ε, δ)-DP and a Laplace mechanism providing pure ε-DP, both following user-level privacy semantics where adding or removing one device (guid) bounds the sensitivity. Each mechanism loops over 11 epsilon values (0.01 to ∞) using a fixed random seed for reproducibility, adds calibrated noise to the numeric columns of each query result, and post-processes outputs by clamping negatives and re-normalising percentage columns. 
+
+Critically, each query is evaluated using the metric that best matches its analytical intent: z-score + IOU for queries identifying anomalous groups (Q1, Q2, Q5, Q7, Q9), Total Variation Distance for percentage distributions (Q4, Q10, Q11), Kendall's Tau for rankings (Q3, Q12), Top-1 Accuracy for winner-per-group queries (Q6), and KL Divergence for multi-dimensional distributions (Q8). At present, the full codebase including the database creation scripts, SQL reporting layer, baseline export, and both DP mechanism files is complete and tested on the subsample database; the evaluation scripts that will select the best epsilon and generate privacy-utility tradeoff visualizations are the immediate next step before running the final pipeline on the full dataset.
 
 ---
 # Results
