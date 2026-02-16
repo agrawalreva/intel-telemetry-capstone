@@ -34,45 +34,16 @@ print("   ✓ Schemas created: university_analysis_pad, university_prod, reporti
 # NOTE: Added missing tables for Layne's 6 reporting tables
 schema_mapping = {
     'university_analysis_pad': [
-        'data_dictionary',
-        'data_dictionary_collector_il',
-        'data_dictionary_collector_inputs',
-        'data_dictionary_tables',
-        'mods_sleepstudy_power_estimation_data_13wks',
-        'mods_sleepstudy_scenario_instance_13wks',
-        'mods_sleepstudy_top_blocker_hist',
-        'system_sysinfo_unique_normalized',
-        'system_cpu_metadata',
-        'system_os_codename_history',
-        'guids_on_off_suspend_time_day',
-        '__tmp_batt_dc_events',
-        '__tmp_fgnd_apps_date'
+        # Due to confidentiality requirements, we are not permitted to share the tables.
     ],
     'university_prod': [
-        'display_devices',
-        'hw_pack_run_avg_pwr',
-        'os_memsam_avail_percent',
-        'os_network_consumption_v2',
-        'os_system_data',
-        'os_system_gen_data',
-        'power_acdc_usage_v4_hist',
-        'userwait_v2',
-        'web_cat_pivot',
-        'web_cat_usage_v2'
+        # Due to confidentiality requirements, we are not permitted to share the tables.
     ]
 }
 
 # Tables that have .gz files instead of parquet
 gz_tables = [
-    'display_devices',
-    'mods_sleepstudy_power_estimation_data_13wks',
-    'mods_sleepstudy_scenario_instance_13wks',
-    'mods_sleepstudy_top_blocker_hist',
-    '__tmp_batt_dc_events',
-    '__tmp_fgnd_apps_date',
-    'guids_on_off_suspend_time_day',
-    'system_cpu_metadata',
-    'system_os_codename_history'
+    # Due to confidentiality requirements, we are not permitted to share the tables.
 ]
 
 def get_folder_size(folder_path):
