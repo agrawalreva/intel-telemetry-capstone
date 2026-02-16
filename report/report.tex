@@ -41,7 +41,7 @@ This research investigates the feasibility and accuracy of generating synthetic 
 \begin{center}
 Code: \url{https://github.com/agrawalreva/intel-telemetry-capstone}
 
-Website: \url{}
+Website: \url{https://agrawalreva.github.io/intel-telemetry-capstone/}
 \end{center}
 
 \maketoc
@@ -78,33 +78,37 @@ For structured event log data like telemetry, similar principles apply: we need 
 
 \subsection{Dataset Description}
 
-Our data is drawn from Intel telemetry. We work with a specialized schema derived from analytical queries used in prior Intel studies; this schema restricts the corpus to the tables needed to reproduce those analyses, making large-scale experimentation tractable. We develop and validate our pipeline on a subsample before running on the full specialized dataset.
+Our data is drawn from Intel telemetry accessed through Globus. The source data consists of 23 tables spread across two schemas: \textbf{university\_analysis\_pad} and \textbf{university\_prod}. A specialized schema was derived from a consolidated set of analytical queries used in prior Intel studies; the exploration of these queries catalogs 24 queries spanning battery usage, display devices, browser and web category usage, MODS sleep and blockers, power and memory utilization, and process-level analytics. We use a subset of 12 of these queries as our benchmark set. The specialized schema restricts the working corpus to the reporting tables required to execute those queries, making large-scale experimentation tractable.
+
+The reporting layer built on top of the raw tables includes pre-aggregated tables such as \textbf{system\_batt\_dc\_events} (battery power-on counts and duration per device); the normalized sysinfo table \textbf{system\_sysinfo\_unique\_normalized} (country, chassis type, model, OS, RAM, persona, and related system attributes); \textbf{system\_cpu\_metadata} (market codename and CPU generation); and \textbf{system\_display\_devices} (connection type, resolution, vendor, and AC/DC duration). Further tables include \textbf{system\_mods\_top\_blocker\_hist} and \textbf{system\_os\_codename\_history} (MODS blockers by OS name and codename), \textbf{system\_web\_cat\_usage} and \textbf{system\_web\_cat\_pivot\_duration} (browser and persona-level web category usage), \textbf{system\_on\_off\_suspend\_time\_day} (on/off and MODS sleep summary), \textbf{system\_hw\_pkg\_power} (package power by device), \textbf{system\_memory\_utilization} (RAM utilization histograms), and \textbf{system\_mods\_power\_consumption} (process-level power consumption for rankings). Records are keyed by device identifier \textbf{guid}. This structure supports the 12 benchmark queries that we use to establish a privacy-free baseline and to evaluate differentially private mechanisms. We develop and validate our pipeline on a subsample database before running on the full specialized dataset.
 
 Differential privacy is especially relevant for telemetry data because events are often tied to devices or users over time. Even after removing direct identifiers, sequences of events can support re-identification or inference of sensitive behavior. Applying DP to telemetry, whether via noisy query answers or via synthetic data generation, provides a formal guarantee that the output does not depend too strongly on any single individual's or device's contribution, which helps protect against reconstruction and linkage attacks while still allowing aggregate and distributional analysis.
 
 \section{Methods}
 
-\subsection{Data Preprocessing}
+\subsection{Data Access and Database Construction}
+\label{sec:data_access}
 
-% (To be filled.)
+Our pipeline begins with raw Intel telemetry data accessed through Globus. The source data consists of 23 tables spread across two schemas: \texttt{university\_analysis\_pad} and \texttt{university\_prod}. To support efficient development and later production runs, we built two DuckDB databases. A subsample database (approximately 5\,GB total, with each table capped at 200\,MB) allows rapid iteration and validation of the pipeline. A full database (approximately 3.6\,TB) is reserved for final production runs. Both are created from the same source tables using database creation scripts so that query logic and downstream mechanisms can be developed on the subsample and then run unchanged on the full dataset.
 
-\subsection{Summary Statistics and Key Metrics}
+\subsection{Reporting Layer and Baseline Queries}
+\label{sec:reporting}
 
-% (To be filled.)
+On top of the raw tables we constructed a reporting layer of 22 pre-aggregated tables using a SQL build script (\texttt{00\_build\_reporting\_tables.sql}). This script resolves joins across schemas, normalizes column names, and structures the data for analytics. From this reporting layer we wrote 12 benchmark queries covering a range of analytical use cases: battery usage by geography and CPU family, display device vendor market share, browser popularity by country, OS-level MODS blockers, RAM utilization distributions, persona-level web category usage, and process power rankings. The results of these 12 queries were exported to CSV files and serve as our privacy-free baseline for evaluating the impact of differential privacy.
 
 \subsection{Differential Privacy Mechanisms}
 \label{sec:methods}
 
-% (To be filled.)
+We implemented two differentially private mechanisms by hand, without relying on external DP libraries. The first is a Gaussian mechanism providing $(\epsilon, \delta)$-differential privacy; the second is a Laplace mechanism providing pure $\epsilon$-differential privacy. Both follow user-level privacy semantics: the sensitivity of each query is bounded under the assumption that adding or removing one device (one \texttt{guid}) can affect the output by at most a known amount. For each mechanism we loop over 11 epsilon values (from 0.01 to $\infty$) using a fixed random seed for reproducibility. Calibrated noise is added to the numeric columns of each query result. Post-processing is applied to ensure interpretability: negative values are clamped to zero where appropriate, and percentage columns are re-normalised so that they sum to a valid distribution. This design keeps the privacy guarantee intact while producing outputs that are directly comparable to the baseline CSVs.
 
 \subsection{Evaluation Metrics}
 \label{sec:eval_metrics}
 
-% (To be filled.)
+Each of the 12 queries is evaluated using the metric that best matches its analytical intent. For queries that aim to identify anomalous groups (Q1, Q2, Q5, Q7, Q9), we use z-score preservation together with Intersection over Union (IOU) of the identified anomaly sets. For queries that output percentage or count distributions (Q4, Q10, Q11), we use Total Variation Distance between the baseline and DP distributions. For ranking-style queries (Q3, Q12), we use Kendall's $\tau$ to measure agreement between the baseline and DP rankings. For winner-per-group queries (Q6), we use Top-1 Accuracy. For queries that produce multi-dimensional distributions (Q8), we use KL Divergence. This query-specific choice of metrics ensures that utility is measured in terms that reflect how each result would be used in practice. Evaluation scripts will select the best epsilon per query (or per mechanism) and generate privacy-utility tradeoff visualisations; the pipeline has been tested on the subsample database, with the full-dataset run planned as the final step.
 
 \section{Results}
 
-\subsection{Subsample (14\,GB) Pipeline}
+\subsection{Subsample Pipeline}
 
 % (To be filled.)
 
