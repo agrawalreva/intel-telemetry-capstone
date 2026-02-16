@@ -1,0 +1,55 @@
+name: telemetry-dp
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+
+  # -------------------------
+  # Core data + query engine
+  # -------------------------
+  - duckdb>=0.9
+  - pyarrow>=14.0
+  - pandas
+  - numpy
+
+  # -------------------------
+  # EDA & visualization
+  # -------------------------
+  - matplotlib
+  - seaborn
+  - plotly
+  - rich
+
+  # -------------------------
+  # Jupyter / workflow
+  # -------------------------
+  - jupyterlab
+  - ipykernel
+
+  # -------------------------
+  # Classical ML
+  # -------------------------
+  - scikit-learn
+  - scipy
+  - statsmodels
+
+  # -------------------------
+  # Differential Privacy (classical)
+  # -------------------------
+  - diffprivlib        # IBM diffprivlib (DP LR, DP GBM, etc.)
+
+  # -------------------------
+  # PyTorch + DP-SGD
+  # -------------------------
+  - pytorch
+  - torchvision
+  - pip
+
+  # -------------------------
+  # Pip-only packages
+  # -------------------------
+  - pip:
+      - opacus          # DP-SGD for PyTorch
+      - autodp          # privacy accounting / composition
+      - opendp          # OpenDP core library (pip-only on Windows)
+      - torchaudio      # PyTorch audio (pip-only on Windows)
