@@ -1,0 +1,500 @@
+﻿Query Analysis
+Consolidated Query Analysis
+Query 1: Battery Power On Geographic Summary
+Source: battery_power_on_geographic_summary.json
+
+
+Table: reporting.system_batt_dc_events
+Columns:
+* guid
+* num_power_ons
+* duration_mins
+
+Table: reporting.system_sysinfo_unique_normalized
+Columns:
+   * guid
+   * countryname_normalized
+
+________________
+
+
+Query 2: Battery On Duration by CPU Family and Generation
+Source: battery_on_duration_cpu_family_gen.json
+
+
+Table: reporting.system_cpu_metadata
+Columns:
+      * guid
+      * marketcodename
+      * cpugen
+
+Table: reporting.system_batt_dc_events
+Columns:
+         * guid
+         * duration_mins
+
+________________
+
+
+Query 3: Display Devices Connection Type Resolution Durations AC/DC
+Source: display_devices_connection_type_resolution_durations_ac_dc.json
+
+
+Table: reporting.system_display_devices
+Columns:
+            * guid
+            * connection_type
+            * resolution_height
+            * resolution_width
+            * duration_ac
+            * duration_dc
+
+________________
+
+
+Query 4: Display Devices Vendors Percentage
+Source: display_devices_vendors_percentage.json
+
+
+Table: reporting.system_display_devices
+Columns:
+               * guid
+               * vendor_name
+
+________________
+
+
+Query 5: MODS Blockers by OS Name and Codename
+Source: mods_blockers_by_osname_and_codename.json
+
+
+Table: reporting.system_mods_top_blocker_hist
+Columns:
+                  * guid
+                  * dt
+
+Table: reporting.system_os_codename_history
+Columns:
+                     * guid
+                     * min_ts
+                     * max_ts
+                     * os_name
+                     * os_codename
+
+________________
+
+
+Query 6: Most Popular Browser in Each Country by System Count
+Source: most_popular_browser_in_each_country_by_system_count.json
+
+
+Table: reporting.system_sysinfo_unique_normalized
+Columns:
+                        * guid
+                        * countryname_normalized
+
+Table: reporting.system_web_cat_usage
+Columns:
+                           * guid
+                           * browser
+
+________________
+
+
+Query 7: On/Off MODS Sleep Summary by CPU Market Codename and Generation
+Source: on_off_mods_sleep_summary_by_cpu_marketcodename_gen.json
+
+
+Table: reporting.system_on_off_suspend_time_day
+Columns:
+                              * guid
+                              * on_time
+                              * off_time
+                              * mods_time
+                              * sleep_time
+
+Table: reporting.system_cpu_metadata
+Columns:
+                                 * guid
+                                 * marketcodename
+                                 * cpugen
+
+________________
+
+
+Query 8: Persona Web Category Usage Analysis
+Source: persona_web_cat_usage_analysis.json
+
+
+Table: reporting.system_sysinfo_unique_normalized
+Columns:
+                                    * guid
+                                    * persona
+
+Table: reporting.system_web_cat_pivot_duration
+Columns:
+                                       * guid
+                                       * content_creation_photo_edit_creation
+                                       * content_creation_video_audio_edit_creation
+                                       * content_creation_web_design_development
+                                       * education
+                                       * entertainment_music_audio_streaming
+                                       * entertainment_other
+                                       * entertainment_video_streaming
+                                       * finance
+                                       * games_other
+                                       * games_video_games
+                                       * mail
+                                       * news
+                                       * unclassified
+                                       * private
+                                       * productivity_crm
+                                       * productivity_other
+                                       * productivity_presentations
+                                       * productivity_programming
+                                       * productivity_project_management
+                                       * productivity_spreadsheets
+                                       * productivity_word_processing
+                                       * recreation_travel
+                                       * reference
+                                       * search
+                                       * shopping
+                                       * social_social_network
+                                       * social_communication
+                                       * social_communication_live
+
+________________
+
+
+Query 9: Package Power by Country
+Source: pkg_power_by_country.json
+
+
+Table: reporting.system_sysinfo_unique_normalized
+Columns:
+                                          * guid
+                                          * countryname_normalized
+
+Table: reporting.system_hw_pkg_power
+Columns:
+                                             * guid
+                                             * nrs
+                                             * mean
+
+________________
+
+
+Query 10: Popular Browsers by Count Usage Percentage
+Source: popular_browsers_by_count_usage_percentage.json
+
+
+Table: reporting.system_web_cat_usage
+Columns:
+                                                * guid
+                                                * browser
+                                                * duration_ms
+
+________________
+
+
+Query 11: RAM Utilization Histogram
+Source: ram_utilization_histogram.json
+
+
+Table: reporting.system_memory_utilization
+Columns:
+                                                   * guid
+                                                   * sysinfo_ram
+                                                   * nrs
+                                                   * avg_percentage_used
+
+________________
+
+
+Query 12: Ranked Process Classifications
+Source: ranked_process_classifications.json
+
+
+Table: reporting.system_mods_power_consumption
+Columns:
+                                                      * user_id
+                                                      * total_power_consumption
+
+________________
+
+
+Query 13: Server Exploration 1
+Source: server_exploration_1.json
+
+
+Table: reporting.system_network_consumption
+Columns:
+                                                         * guid
+                                                         * nrs
+                                                         * input_desc
+                                                         * avg_bytes_sec
+
+Table: reporting.system_sysinfo_unique_normalized
+Columns:
+                                                            * guid
+                                                            * chassistype
+                                                            * modelvendor_normalized
+                                                            * model_normalized
+                                                            * ram
+                                                            * os
+                                                            * #ofcores
+
+________________
+
+
+Query 14: Top 10 Applications by App Type Ranked by Focal Time
+Source: top_10_applications_by_app_type_ranked_by_focal_time.json
+
+
+Table: reporting.system_frgnd_apps_types
+Columns:
+                                                               * guid
+                                                               * app_type
+                                                               * exe_name
+                                                               * totalsecfocal_day
+
+________________
+
+
+Query 15: Top 10 Applications by App Type Ranked by System Count
+Source: top_10_applications_by_app_type_ranked_by_system_count.json
+
+
+Table: reporting.system_frgnd_apps_types
+Columns:
+                                                                  * guid
+                                                                  * app_type
+                                                                  * exe_name
+
+________________
+
+
+Query 16: Top 10 Applications by App Type Ranked by Total Detections
+Source: top_10_applications_by_app_type_ranked_by_total_detections.json
+
+
+Table: reporting.system_frgnd_apps_types
+Columns:
+                                                                     * guid
+                                                                     * app_type
+                                                                     * exe_name
+                                                                     * lines_per_day
+
+________________
+
+
+Query 17: Top 10 Processes per User ID Ranked by Total Power Consumption
+Source: top_10_processes_per_user_id_ranked_by_total_power_consumption.json
+
+
+Table: reporting.system_mods_power_consumption
+Columns:
+                                                                        * user_id
+                                                                        * app_id
+                                                                        * total_power_consumption
+
+________________
+
+
+Query 18: Top 20 Most Power Consuming Processes by Avg Power Consumed
+Source: top_20_most_power_consuming_processes_by_avg_power_consumed.json
+
+
+Table: reporting.system_mods_power_consumption
+Columns:
+                                                                           * app_id
+                                                                           * total_power_consumption
+
+________________
+
+
+Query 19: Top MODS Blocker Types Durations by OS Name and Codename
+Source: top_mods_blocker_types_durations_by_osname_and_codename.json
+
+
+Table: reporting.system_mods_top_blocker_hist
+Columns:
+                                                                              * guid
+                                                                              * blocker_name
+                                                                              * active_time_ms
+                                                                              * activity_level
+                                                                              * blocker_type
+                                                                              * dt
+
+Table: reporting.system_os_codename_history
+Columns:
+                                                                                 * guid
+                                                                                 * os_name
+                                                                                 * os_codename
+                                                                                 * min_ts
+                                                                                 * max_ts
+
+________________
+
+
+Query 20: UserWait Top 10 Wait Processes
+Source: userwait_top_10_wait_processes.json
+
+
+Table: reporting.system_userwait
+Columns:
+                                                                                    * guid
+                                                                                    * proc_name
+                                                                                    * total_duration_ms
+                                                                                    * number_of_instances
+                                                                                    * event_name
+
+________________
+
+
+Query 21: UserWait Top 10 Wait Processes by Wait Type AC/DC
+Source: userwait_top_10_wait_processes_wait_type_ac_dc.json
+
+
+Table: reporting.system_userwait
+Columns:
+                                                                                       * event_name
+                                                                                       * acdc
+                                                                                       * proc_name
+                                                                                       * total_duration_ms
+                                                                                       * number_of_instances
+
+________________
+
+
+Query 22: UserWait Top 20 Wait Processes Comparing AC/DC/Unknown Durations
+Source: userwait_top_20_wait_processes_compare_ac_dc_unknown_durations.json
+
+
+Table: reporting.system_userwait
+Columns:
+                                                                                          * guid
+                                                                                          * proc_name
+                                                                                          * acdc
+                                                                                          * number_of_instances
+                                                                                          * total_duration_ms
+                                                                                          * event_name
+
+________________
+
+
+Query 23: Xeon Network Consumption
+Source: Xeon_network_consumption.json
+
+
+Table: reporting.system_sysinfo_unique_normalized
+Columns:
+                                                                                             * guid
+                                                                                             * cpuname
+                                                                                             * cpucode
+                                                                                             * os
+
+Table: reporting.system_network_consumption
+Columns:
+                                                                                                * guid
+                                                                                                * nrs
+                                                                                                * input_desc
+                                                                                                * avg_bytes_sec
+
+________________
+
+
+Query 24: Average Platform Power, C0, Frequency, and Temperature by Chassis
+Source: avg_platform_power_c0_freq_temp_by_chassis.json
+
+
+Table: reporting.system_sysinfo_unique_normalized
+Columns:
+                                                                                                   * guid
+                                                                                                   * chassistype
+
+Table: reporting.system_psys_rap_watts
+Columns:
+                                                                                                      * guid
+                                                                                                      * nrs
+                                                                                                      * avg_psys_rap_watts
+
+
+Table: reporting.system_pkg_C0
+Columns:
+                                                                                                      * guid
+                                                                                                      * nrs
+                                                                                                      * avg_pkg_c0
+
+Table: reporting.system_pkg_avg_freq_mhz
+Columns:
+                                                                                                         * guid
+                                                                                                         * nrs
+                                                                                                         * avg_avg_freq_mhz
+
+Table: reporting.system_pkg_temp_centigrade
+Columns:
+                                                                                                            * guid
+                                                                                                            * nrs
+                                                                                                            * avg_temp_centigrade
+
+
+Summary
+Summary of All Tables and Columns Required 
+                                                                                                            1. reporting.system_batt_dc_events
+Columns: guid, num_power_ons, duration_mins
+Used in queries: 1, 2
+                                                                                                            2. reporting.system_sysinfo_unique_normalized
+Columns: guid, countryname_normalized, chassistype, modelvendor_normalized, model_normalized, ram, os, #ofcores, cpuname, cpucode, persona
+Used in queries: 1, 6, 8, 9, 13, 23, 24
+                                                                                                            3. reporting.system_cpu_metadata
+Columns: guid, marketcodename, cpugen
+Used in queries: 2, 7
+                                                                                                            4. reporting.system_display_devices
+Columns: guid, connection_type, resolution_heigth, resolution_width, duration_ac, duration_dc, vendor_name
+Used in queries: 3, 4
+                                                                                                            5. reporting.system_mods_top_blocker_hist
+Columns: guid, dt, blocker_name, active_time_ms, activity_level, blocker_type
+Used in queries: 5, 19
+                                                                                                            6. reporting.system_os_codename_history
+Columns: guid, min_ts, max_ts, os_name, os_codename
+Used in queries: 5, 19
+                                                                                                            7. reporting.system_web_cat_usage
+Columns: guid, browser, duration_ms
+Used in queries: 6, 10
+                                                                                                            8. reporting.system_on_off_suspend_time_day
+Columns: guid, on_time, off_time, mods_time, sleep_time
+Used in queries: 7
+                                                                                                            9. reporting.system_web_cat_pivot_duration
+Columns: guid and all web category duration fields
+Used in queries: 8
+                                                                                                            10. reporting.system_hw_pkg_power
+Columns: guid, nrs, mean
+Used in queries: 9
+                                                                                                            11. reporting.system_memory_utilization
+Columns: guid, sysinfo_ram, nrs, avg_percentage_used
+Used in queries: 11
+                                                                                                            12. reporting.system_mods_power_consumption
+Columns: user_id, app_id, total_power_consumption
+Used in queries: 12, 17, 18
+                                                                                                            13. reporting.system_network_consumption
+Columns: guid, nrs, input_desc, avg_bytes_sec
+Used in queries: 13, 23
+                                                                                                            14. reporting.system_frgnd_apps_types
+Columns: guid, app_type, exe_name, totalsecfocal_day, lines_per_day
+Used in queries: 14, 15, 16
+                                                                                                            15. reporting.system_userwait
+Columns: guid, proc_name, acdc, number_of_instances, total_duration_ms, event_name
+Used in queries: 20, 21, 22
+                                                                                                            16. reporting.system_psys_rap_watts
+Columns: guid, nrs, avg_psys_rap_watts
+Used in queries: 24
+                                                                                                            17. reporting.system_pkg_C0
+Columns: guid, nrs, avg_pkg_c0
+Used in queries: 24
+                                                                                                            18. reporting.system_pkg_avg_freq_mhz
+Columns: guid, nrs, avg_avg_freq_mhz
+Used in queries: 24
+                                                                                                            19. reporting.system_pkg_temp_centigrade
+Columns: guid, nrs, avg_temp_centigrade
+Used in queries: 24
