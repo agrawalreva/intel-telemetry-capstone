@@ -8,7 +8,7 @@
 | Jordan Lambino   | Student | [@jordanlambino](https://github.com/jordanlambino)  |
 | Yu-Xiang Wang    | Advisor | [@yuxiangw](https://github.com/yuxiangw)|
 
-A complete data pipeline for implementing and evaluating differential privacy mechanisms on Intel system telemetry data, from raw data acquisition through privacy-preserving analytics.
+A complete data pipeline for implementing and evaluating differential privacy mechanisms on Intel system telemetry data, from raw data acquisition through privacy-preserving analytics. You can find more @ [intel-telemetry-capstone](https://agrawalreva.github.io/intel-telemetry-capstone/)
 
 ## Table of Contents
 
