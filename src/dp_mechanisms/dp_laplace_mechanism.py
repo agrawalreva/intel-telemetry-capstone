@@ -77,35 +77,66 @@ def compute_metric_A(true_df: pd.DataFrame,
                      noisy_df: pd.DataFrame,
                      zscore_col: str) -> dict:
     """
-    Metric A — 'which groups are abnormal?'
-    Z-score of zscore_col → top-set (z > 0) → IOU + L_inf.
-    Identical logic to the previous telemetry project's z-score + top-set.
+    Metric A — used for queries that ask 'which groups are abnormal?'
+
+    We compute z-scores across rows for a chosen numeric column and then
+    compare the *selected* "top set" before vs after DP noise.
+
+    IMPORTANT CHANGE (stability / better interpretability):
+      - We still define the *true* top-set size using the original z>0 rule
+        (above-mean groups), but we compare sets using a fixed-size Top-K
+        selection for BOTH true and DP.
+      - This avoids IOU being dominated by tiny threshold flips near 0 and
+        ensures a fair same-size comparison.
+
+    Steps:
+      1) Compute z-scores for true and DP outputs.
+      2) Let k = number of rows with z_true > 0 (above-mean groups).
+      3) Select Top-K indices by z-score for both true and DP (descending).
+      4) Compute IOU + L_inf on z-scores, and record set sizes.
     """
     true_vals  = _ensure_series(true_df[zscore_col].astype(float))
     noisy_vals = _ensure_series(noisy_df[zscore_col].astype(float))
 
-    z_true = zscore(true_vals)  if true_vals.nunique()  > 1 else np.zeros(len(true_vals))
-    z_dp   = zscore(noisy_vals) if noisy_vals.nunique() > 1 else np.zeros(len(noisy_vals))
+    # z-scores (handle edge case of constant values)
+    if true_vals.nunique() > 1:
+        z_true = zscore(true_vals)
+    else:
+        z_true = np.zeros(len(true_vals))
 
-    top_true = set(np.where(z_true > 0)[0])
-    top_dp   = set(np.where(z_dp   > 0)[0])
+    if noisy_vals.nunique() > 1:
+        z_dp = zscore(noisy_vals)
+    else:
+        z_dp = np.zeros(len(noisy_vals))
 
-    intersection = len(top_true & top_dp)
-    union        = len(top_true | top_dp)
-    iou          = intersection / union if union > 0 else 1.0
+    # Determine k from the original threshold rule on TRUE results (z>0)
+    k = int(np.sum(z_true > 0))
 
+    # Fixed-size Top-K selection for both true and DP
+    if k <= 0:
+        top_true = set()
+        top_dp   = set()
+        iou = 1.0  # both empty → perfect
+    else:
+        k = min(k, len(z_true), len(z_dp))
+        top_true = set(np.argsort(-z_true)[:k])
+        top_dp   = set(np.argsort(-z_dp)[:k])
+
+        intersection = len(top_true & top_dp)
+        union        = len(top_true | top_dp)
+        iou          = intersection / union if union > 0 else 1.0
+
+    # L_inf on z-scores
     l_inf = float(np.max(np.abs(z_true - z_dp))) if len(z_true) == len(z_dp) else float("nan")
 
     return {
-        "metric_type"       : "A",
-        "iou_top_set"       : round(iou,   4),
-        "l_inf_zscore"      : round(l_inf, 4),
+        "metric_type"   : "A",
+        "iou_top_set"   : round(float(iou), 4),
+        "l_inf_zscore"  : round(float(l_inf), 4),
         "top_set_size_true" : len(top_true),
         "top_set_size_dp"   : len(top_dp),
     }
 
-
-# --- Metric B : TVD on percentage distribution --------------------------------
 
 def compute_metric_B(true_df: pd.DataFrame,
                      noisy_df: pd.DataFrame,
