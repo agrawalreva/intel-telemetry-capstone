@@ -300,5 +300,64 @@ Raw Intel telemetry is stored in 23 tables across \texttt{university\_analysis\_
 
 We fix a total privacy budget $\epsilon_{\text{total}}$ and allocate per-query budgets $\epsilon_1, \ldots, \epsilon_{12}$ such that $\sum_{i=1}^{12} \epsilon_i \leq \epsilon_{\text{total}}$. Allocation policy: Query 8 (high-dimensional) receives approximately 20\% of $\epsilon_{\text{total}}$; core usage queries Q1, Q2, Q7, Q9 receive a medium allocation (approximately 8 to 10\% each); simple histograms and counts (Q4, Q5, Q10, Q11) receive a smaller allocation (approximately 4 to 5\% each); ranking and winner queries (Q6, Q12) receive a moderate allocation (approximately 6 to 8\% each); Q3 receives a smaller allocation. For the Analytic Gaussian mechanism we fix $\delta = 10^{-6}$ per query. Under sequential composition the full system satisfies $(\epsilon_{\text{total}}, \delta_{\text{total}})$-DP with $\epsilon_{\text{total}} = \sum_{i=1}^{12} \epsilon_i$ and $\delta_{\text{total}} = \sum_{i=1}^{12} \delta_i = 12 \times 10^{-6}$.
 
+\section{Results}
+\label{sec:results}
+
+(To be filled after DP mechanisms are implemented for all queries and the pipeline has been run and evaluated.)
+
+\subsection{Experimental Setup}
+\label{sec:exp_setup}
+
+% (To be filled.)
+
+\subsection{Privacy Parameters}
+\label{sec:privacy_params}
+
+% (To be filled.)
+
+\subsection{Utility Metrics}
+\label{sec:utility_metrics}
+
+% (To be filled.)
+
+\subsection{Laplace vs Gaussian Comparison}
+\label{sec:laplace_vs_gaussian}
+
+% (To be filled.)
+
+\subsection{Sensitivity Analysis}
+\label{sec:sensitivity_analysis}
+
+% (To be filled.)
+
+\section{Discussion}
+\label{sec:discussion}
+
+(To be filled after results are available.)
+
+\subsection{Privacy and Utility Tradeoff}
+\label{sec:disc_tradeoff}
+
+% (To be filled.)
+
+\subsection{Practical Implications}
+\label{sec:disc_practical}
+
+% (To be filled.)
+
+\subsection{Limitations}
+\label{sec:disc_limitations}
+
+% (To be filled.)
+
+\subsection{Assumptions and Threat Model}
+\label{sec:disc_threat}
+
+% (To be filled.)
+
+\subsection{Deployment Considerations}
+\label{sec:disc_deployment}
+
+% (To be filled.)
 
 \end{document}
