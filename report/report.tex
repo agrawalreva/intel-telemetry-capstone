@@ -108,5 +108,21 @@ If $\mathcal{M}$ is $(\epsilon,\delta)$-DP and $g$ is any deterministic function
 \paragraph{Report Noisy Max.}
 For queries that select the maximum over a set of candidates (for example, the winner per group), we use Report Noisy Max: add independent Laplace noise to each candidate value and return the index of the maximum noisy value. The privacy cost is one $\epsilon$ for the entire selection \cite{dwork2014promise}.
 
+\subsection{Telemetry Data}
+\label{sec:telemetry_data}
+
+The data used in this work is Intel telemetry accessed through Globus. The source data consists of 23 tables across two schemas: \textbf{university\_analysis\_pad} and \textbf{university\_prod}. Each row is associated with a device identifier (GUID); multiple rows per GUID are common. The data exhibits heavy-tailed distributions; hence a small fraction of GUIDs can contribute disproportionately to aggregates. We therefore \emph{clip} per-GUID contributions before aggregation so that global sensitivity is bounded by a fixed constant. Concretely, we cap quantities (including the number of power-on events per GUID and the total duration per GUID in a given category) at constants $C_1$, $C_2$, and similar bounds, as specified per query in Section~\ref{sec:methods}. The aggregate query is then evaluated on the clipped view and the DP mechanism is applied to the query output. Clipping is a deterministic pre-processing step; global sensitivity is computed with respect to the clipped query function only.
+
+We use a specialized reporting layer of 22 pre-aggregated tables built from the raw tables via a SQL build script, and we run 12 benchmark queries covering battery usage by geography and CPU family, display device vendor market share, browser popularity by country, OS-level MODS blockers, RAM utilization, persona-level web category usage, and process power rankings. The 12 query results are exported as baseline (non-private) CSVs. We then apply, per query, either the Laplace or the Analytic Gaussian mechanism (Section~\ref{sec:global_model}), with epsilon allocated via sequential composition (Section~\ref{sec:budget}). Post-processing consists of clamping numeric outputs to non-negative values where required and re-normalising percentage columns to sum to 100\% where applicable. The pipeline is developed and validated on a subsample database (approximately 5\,GB) before execution on the full dataset (approximately 3.6\,TB).
+
+\subsection{Applications}
+\label{sec:applications}
+
+Privacy-preserving query release over telemetry supports usage metrics and feature adoption by segment, performance and health monitoring by geography or hardware family, market share and ranking statistics, and anomaly detection (identification of segments with unusually high error rates or power draw). Analysts receive noisy answers suitable for trend analysis and prioritisation without access to raw user-level data. The same framework applies to other telemetry or event-log datasets where user-level differential privacy is required.
+
+\subsection{Related Work}
+\label{sec:related}
+
+Differential privacy was introduced in \cite{dwork2006calibrating} and is treated in depth in \cite{dwork2014promise}, which covers the Laplace and Gaussian mechanisms, global sensitivity, and composition. The Analytic Gaussian mechanism of \cite{balle2018improving} improves noise calibration for $(\epsilon,\delta)$-DP and is well suited to query release when many numeric outputs are perturbed. Query answering under DP in database and analytics settings requires bounding sensitivity (typically via clipping or projection) and allocating privacy budget across queries. In this work we do not use data-dependent sensitivity, $N$-factor scaling, or averaging over multiple draws to reduce noise; all guarantees follow from standard mechanisms and explicit sequential composition.
 
 \end{document}
