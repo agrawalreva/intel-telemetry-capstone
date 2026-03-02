@@ -360,4 +360,47 @@ We fix a total privacy budget $\epsilon_{\text{total}}$ and allocate per-query b
 
 % (To be filled.)
 
+\section{Conclusion}
+\label{sec:conclusion}
+
+\subsection{Summary}
+% (To be filled after results and discussion are complete. Will summarize the DP query release system, key findings from evaluation, and how well Laplace vs Analytic Gaussian performed across the 12 queries.)
+
+\subsection{Impact}
+% (To be filled.)
+
+\subsection{Future Work}
+Future work includes extension to additional queries, exploration of advanced composition and optimal epsilon allocation, comparison with other mechanisms (for example, the exponential mechanism for rankings), and full-scale evaluation on the complete dataset.
+
+\subsection{Acknowledgements}
+We thank our project advisor and Intel for access to the telemetry data and for the query set that motivated our specialized schema.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% References
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\makereference
+\bibliography{reference}
+\bibliographystyle{style/dsc180bibstyle}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Appendix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+\makeappendix
+
+\subsection{Appendix A: Contributions}
+\begin{itemize}
+    \item \textbf{Reva Agrawal}: Carried out the exploration of the 22 SQL queries to identify the tables and columns required to build the specialized schema. Confirmed and refined the pipeline and evaluation metrics with the project advisor and debugged its implementation. Wrote sections 1 and 2 of the report based on progressive work over the course of the project.
+    \item \textbf{Dhruv Patel}: Responsible for the design and construction of the database and pipeline, including setting up DuckDB from the raw data, building the reporting layer in SQL, and writing the scripts to export the baseline. Implemented both differential privacy mechanisms (Laplace and Gaussian). Designed the per-query evaluation metrics in line with the project mentor's feedback. Ensured that no sensitive data was committed to the repository.
+    \item \textbf{Jordan Lambino}: Developed code for the project website, added to website design, and included information in the Introduction and Methods sections. Assisted with query exploration. Wrote parts of the Introduction section and reviewed the report for accuracy.
+\end{itemize}
+
+\subsection{Appendix B: Project Proposal}
+\url{https://drive.google.com/file/d/1-uWLW_FLOvIJ-335J9SwYmFleC-lXZaR/view?usp=sharing}
+
+\subsection{Appendix C: Additional Materials}
+Schema Exploration: \url{https://docs.google.com/document/d/1XfkwK9zN7aP9EJ5fI-bRJ5eS9TzQZW_oRQ9NwRilQeo/edit?usp=sharing}
+
 \end{document}
