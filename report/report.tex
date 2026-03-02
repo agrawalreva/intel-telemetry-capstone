@@ -227,4 +227,78 @@ Raw Intel telemetry is stored in 23 tables across \texttt{university\_analysis\_
 
 \textbf{Post-processing:} None beyond argmax.
 
+\subsection{Query 7: On/Off MODS Sleep Summary by CPU Market Codename and Generation}
+\label{sec:q7}
+
+\textbf{Source tables:} \texttt{reporting.system\_on\_off\_suspend\_time\_day} (guid, on\_time, off\_time, mods\_time, sleep\_time), \texttt{reporting.system\_cpu\_metadata} (guid, marketcodename, cpugen).
+
+\textbf{Mathematical definition.} Group by (marketcodename, cpugen). Per group: $\text{Sum}(\text{on\_time})$, $\text{Sum}(\text{off\_time})$, $\text{Sum}(\text{mods\_time})$, $\text{Sum}(\text{sleep\_time})$, count. Averages or percentages derived from these.
+
+\textbf{Contribution bounding.} Clip per-GUID total time per category to $C_{\text{on}}, C_{\text{off}}, C_{\text{mods}}, C_{\text{sleep}}$ (in our implementation, 1440 minutes per day per category). $\Delta \,\text{Sum} =$ the respective $C$ for each time column; $\Delta \,\text{Count} = 1$. L1 $= C_{\text{on}} + C_{\text{off}} + C_{\text{mods}} + C_{\text{sleep}} + 1$.
+
+\textbf{Mechanism:} Analytic Gaussian (multi-metric grouped release). Epsilon: $\epsilon_7$ (medium). Composition: one vector release per group; total $\epsilon_7$ for this query.
+
+\textbf{Post-processing:} Clamp $\geq 0$; re-normalise percentages if computed.
+
+\subsection{Query 8: Persona Web Category Usage Analysis}
+\label{sec:q8}
+
+\textbf{Source tables:} \texttt{reporting.system\_sysinfo\_unique\_normalized} (guid, persona), \texttt{reporting.system\_web\_cat\_pivot\_duration} (guid, $\sim$30 web category duration columns).
+
+\textbf{Mathematical definition.} Per persona: number\_of\_systems, days, and $\sim$30 category duration columns (sums or averages). Output is a high-dimensional vector. We treat the entire persona-category vector as a \emph{single} vector-valued query.
+
+\textbf{Contribution bounding.} Clip per-GUID per-category contribution to $C$; then $\Delta \,\text{Sum}_j = C$ per category $j$. The L1 sensitivity of the full vector is $\sum_j \Delta_j$ (in our case $30C$ for 30 category columns). For averages we use $\Delta_{\text{avg}} = C/k_{\min}$ per column. We do \emph{not} treat each column as an independent release; one mechanism call for the full vector.
+
+\textbf{Mechanism:} Analytic Gaussian (high-dimensional vector). Epsilon: $\epsilon_8$ (larger; $\approx 20\%$ of $\epsilon_{\text{total}}$). $\sigma$ calibrated to L2 sensitivity of the vector.
+
+\textbf{Post-processing:} Clamp $\geq 0$; re-normalise distribution columns to sum to 1 or 100\%.
+
+\subsection{Query 9: Package Power by Country}
+\label{sec:q9}
+
+\textbf{Source tables:} \texttt{reporting.system\_sysinfo\_unique\_normalized} (guid, countryname\_normalized), \texttt{reporting.system\_hw\_pkg\_power} (guid, nrs, mean).
+
+\textbf{Mathematical definition.} Group by country. Per country: sum of (clipped) mean power, count. Average = sum / max(count, $k_{\min}$). Clip per-GUID mean to $C = 50$ watts; $k_{\min} = 100$. $\Delta \,\text{Sum} = C$, $\Delta \,\text{Count} = 1$; $\Delta_{\text{avg}} = C/k_{\min}$.
+
+\textbf{Mechanism:} Analytic Gaussian (average query). Epsilon: $\epsilon_9$ (medium). \textbf{Post-processing:} Clamp $\geq 0$.
+
+\subsection{Query 10: Popular Browsers by Count Usage Percentage}
+\label{sec:q10}
+
+\textbf{Source tables:} \texttt{reporting.system\_web\_cat\_usage} (guid, browser, duration\_ms).
+
+\textbf{Mathematical definition.} Per browser: count of GUIDs, total duration (clipped). Percentages computed in post-processing from noisy counts and sums. Clip per-GUID duration to $C$. $\Delta \,\text{Count} = 1$, $\Delta \,\text{Sum}(\text{duration}) = C$ per browser.
+
+\textbf{Mechanism:} Laplace (count and sum). Epsilon: $\epsilon_{10}$ (smaller).
+
+\textbf{Post-processing:} Clamp counts and sums $\geq 0$; compute percentages; re-normalise to sum to 100\%.
+
+\subsection{Query 11: RAM Utilization Histogram}
+\label{sec:q11}
+
+\textbf{Source tables:} \texttt{reporting.system\_memory\_utilization} (guid, sysinfo\_ram, nrs, avg\_percentage\_used).
+
+\textbf{Mathematical definition.} Histogram bins are defined over the RAM dimension (in our schema, \texttt{ram\_gb}). Each GUID contributes to exactly one bin. Per bin we release the count and optionally the average of \texttt{avg\_percentage\_used}. Adding or removing one GUID changes exactly one bin's count by 1. Hence the \textbf{L1 sensitivity of the full histogram vector is 1}.
+
+\textbf{Mechanism:} Laplace (histogram). Epsilon: $\epsilon_{11}$ (smaller). \textbf{Post-processing:} Clamp $\geq 0$; optionally re-normalise.
+
+\subsection{Query 12: Ranked Process Classifications}
+\label{sec:q12}
+
+\textbf{Source tables:} \texttt{reporting.system\_mods\_power\_consumption} (user\_id, total\_power\_consumption).
+
+\textbf{Mathematical definition.} $\text{Sum}(\text{total\_power\_consumption})$ per process, with per-user clipping at $C = 100$. Ranking = order of noisy sums (post-processing). Optionally release only top process via Report Noisy Max.
+
+\textbf{Sensitivity.} $\Delta \,\text{Sum} = C$ per process. Full vector L1 = $C \times \text{(\# groups)}$ if one GUID affects one group.
+
+\textbf{Mechanism:} Laplace (sum query; ranking from noisy values). For top-only: Report Noisy Max. Epsilon: $\epsilon_{12}$ (moderate).
+
+\textbf{Post-processing:} Clamp $\geq 0$. Ranking is deterministic post-processing of noisy outputs.
+
+\subsection{Privacy Budget Allocation}
+\label{sec:budget}
+
+We fix a total privacy budget $\epsilon_{\text{total}}$ and allocate per-query budgets $\epsilon_1, \ldots, \epsilon_{12}$ such that $\sum_{i=1}^{12} \epsilon_i \leq \epsilon_{\text{total}}$. Allocation policy: Query 8 (high-dimensional) receives approximately 20\% of $\epsilon_{\text{total}}$; core usage queries Q1, Q2, Q7, Q9 receive a medium allocation (approximately 8 to 10\% each); simple histograms and counts (Q4, Q5, Q10, Q11) receive a smaller allocation (approximately 4 to 5\% each); ranking and winner queries (Q6, Q12) receive a moderate allocation (approximately 6 to 8\% each); Q3 receives a smaller allocation. For the Analytic Gaussian mechanism we fix $\delta = 10^{-6}$ per query. Under sequential composition the full system satisfies $(\epsilon_{\text{total}}, \delta_{\text{total}})$-DP with $\epsilon_{\text{total}} = \sum_{i=1}^{12} \epsilon_i$ and $\delta_{\text{total}} = \sum_{i=1}^{12} \delta_i = 12 \times 10^{-6}$.
+
+
 \end{document}
