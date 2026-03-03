@@ -11,16 +11,32 @@
 
 }
 
+.toc ul {
+  padding-left: 1rem;
+}
+
+.toc ul ul {
+  padding-left: 1.5rem;
+}
 
 /* section header color */
 .main-content h1 {
     background-color: #1f2935;
     color: #f1f4f9;
 
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
+    margin-left: calc((50% - 50vw) / 3);
+    margin-right: calc((50% - 50vw) / 3);
 
     padding: 2.5rem 1.5rem;
+
+    text-align: center;
+}
+
+.main-content h2 {
+    background-color:#cdcdcd;
+    color: #1f2935;
+
+    padding: 1.5rem 1rem;
 
     text-align: center;
 }

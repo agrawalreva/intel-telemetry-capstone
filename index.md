@@ -3,6 +3,22 @@ title: "Balancing Privacy and Utility: Differentially Private Synthetic Data Gen
 description: "Reva Agrawal, Jordan Lambino, Dhruv Patel | Yu-Xiang Wang"
 layout: default
 ---
+Table of Contents
+
+- [I. Introduction](#introduction)
+  - [i. Motivation](#motivation)
+  - [ii. Telemetry Data](#telemetry-data)
+
+- [II. Methods](#methods)
+
+- [III. Results](#results)
+
+- [IV. Conclusion](#conclusion)
+
+- [V. Outlook](#outlook)
+
+* TOC
+{:toc}
 
 # Introduction
 Intel has established itself as a tech industry giant due to their influence in chip manufacturing for the last few decades. The company develops a massive amount of chips--CPUs, GPUs, NPUs, etc.--which are integrated into PCs for the end-user. These PCs are manufactured by Original Equipment Manufacturers (OEMs)--Lenovo, HP, Dell, ASUS, etc.--who create the bulk of the equipment and distribute to customers. 
@@ -12,6 +28,44 @@ Since Intel distributes their products to OEMs, they cannot collect data about d
 While Intel designs safeguards to ensure "anonymity," user information is not entirely immune to attacks. In particular, reconstruction attacks can be applied to re-identify individuals by analyzing repeated usage patterns and matching user IDs to device IDs. This presents a challenge for Intel to guarantee user privacy while still collecting meaningful data.
 
 Differential Privacy (DP) offers a mathematical framework to address this challenge. Highly simplified, Differential Privacy ensures that the inclusion or exclusion of any one user's data would have a minimal effect on the results of any analysis. In other words, imagine two datasets; one of these datasets includes my data, while the other does not. Differential Privacy gives a mathematical promise that performing analysis on both datasets would provide indistinguishable results.
+
+## Motivation
+Organizations that collect telemetry at scale require aggregate statistics for collaboration,
+benchmarking, and research while protecting individual users. Removal of direct identifiers
+alone does not prevent inference from rich behavioral traces. Query-based release under
+DP offers a principled alternative: analysts receive noisy answers to predefined queries,
+with a formal guarantee that the probability of any output event changes by at most a mul-
+tiplicative factor eε (and an additive δ when applicable) when one user’s data is added
+or removed. Implementing this approach in practice requires (1) defining the unit of pri-
+vacy (in this work, one GUID), (2) deriving and bounding each query’s global sensitivity,
+(3) selecting a mechanism and calibrating noise to that sensitivity, and (4) accounting for
+composition when multiple queries are answered. This work addresses these requirements
+in the context of a large telemetry corpus and a fixed set of 12 analytical queries.
+
+## Telemetry Data
+The data used in this work is Intel telemetry accessed through Globus. The source data
+consists of 23 tables across two schemas: university_analysis_pad and university_prod.
+Each row is associated with a device identifier (GUID); multiple rows per GUID are com-
+mon. The data exhibits heavy-tailed distributions; hence a small fraction of GUIDs can
+contribute disproportionately to aggregates. We therefore clip per-GUID contributions be-
+fore aggregation so that global sensitivity is bounded by a fixed constant. Concretely, we
+cap quantities (including the number of power-on events per GUID and the total duration
+per GUID in a given category) at constants C1, C2, and similar bounds, as specified per
+query in Section ??. The aggregate query is then evaluated on the clipped view and the DP
+mechanism is applied to the query output. Clipping is a deterministic pre-processing step;
+global sensitivity is computed with respect to the clipped query function only.
+
+We use a specialized reporting layer of 22 pre-aggregated tables built from the raw tables
+via a SQL build script, and we run 12 benchmark queries covering battery usage by geogra-
+phy and CPU family, display device vendor market share, browser popularity by country,
+OS-level MODS blockers, RAM utilization, persona-level web category usage, and process
+power rankings. The 12 query results are exported as baseline (non-private) CSVs. We
+then apply, per query, either the Laplace or the Analytic Gaussian mechanism (Section 2.2),
+with epsilon allocated via sequential composition (Section 2.15). Post-processing consists
+of clamping numeric outputs to non-negative values where required and re-normalising
+percentage columns to sum to 100% where applicable. The pipeline is developed and vali-
+dated on a subsample database (approximately 5 GB) before execution on the full dataset
+(approximately 3.6 TB).
 
 ---
 # Methods
