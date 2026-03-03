@@ -17,12 +17,17 @@
     background-color: #1f2935;
     color: #f1f4f9;
 
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
+    margin-left: calc((50% - 50vw) / 3);
+    margin-right: calc((50% - 50vw) / 3);
 
     padding: 2.5rem 1.5rem;
 
     text-align: center;
+}
+
+.main-content h2 {
+    background-color:#797979;
+    color: #1f2935;
 }
 
 body {
