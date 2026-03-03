@@ -3,6 +3,14 @@ title: "Balancing Privacy and Utility: Differentially Private Synthetic Data Gen
 description: "Reva Agrawal, Jordan Lambino, Dhruv Patel | Yu-Xiang Wang"
 layout: default
 ---
+Table of Contents
+I. [Introduction](#introduction)
+    a. [Motivation](#motivation)
+    b. [Telemetry Data](#telemetry-data)
+II. [Methods](#methods)
+III. [Results](#results)
+IV. [Conclusion](#conclusion)
+V. [Outlook](#outlook)
 
 # Introduction
 Intel has established itself as a tech industry giant due to their influence in chip manufacturing for the last few decades. The company develops a massive amount of chips--CPUs, GPUs, NPUs, etc.--which are integrated into PCs for the end-user. These PCs are manufactured by Original Equipment Manufacturers (OEMs)--Lenovo, HP, Dell, ASUS, etc.--who create the bulk of the equipment and distribute to customers. 
