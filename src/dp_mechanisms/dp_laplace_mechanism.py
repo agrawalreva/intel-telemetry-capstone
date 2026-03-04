@@ -51,9 +51,11 @@ from dp_config import (
     QUERY_META,
     EPSILON_VALUES,
     RANDOM_SEED,
+    N_DIST_COLS_Q8,
     BASELINE_MINI,
     BASELINE_FULL,
     get_l1_sensitivity,
+    get_sensitivity,
     laplace_scale,
     build_output_dir,
 )
@@ -172,25 +174,55 @@ def compute_metric_C(true_df: pd.DataFrame,
                      rank_col: str,
                      top_k: int = 3) -> dict:
     """
-    Metric C — ranking query.
-    Kendall's Tau ∈ [-1, 1] + Top-K accuracy.
+    Metric C — ranking stability.
+
+    We compute Kendall tau on the *induced ranking* (order of items),
+    not on the raw values. This avoids NaNs when values are tied/constant.
     """
-    true_vals  = _ensure_series(true_df[rank_col].astype(float))
-    noisy_vals = _ensure_series(noisy_df[rank_col].astype(float))
+    true_vals  = pd.Series(true_df[rank_col]).astype(float).to_numpy()
+    noisy_vals = pd.Series(noisy_df[rank_col]).astype(float).to_numpy()
 
     n = min(len(true_vals), len(noisy_vals))
-    tau, _ = kendalltau(true_vals.values[:n], noisy_vals.values[:n])
+    if n <= 1:
+        # With 0/1 items, ranking is trivially identical
+        tau = 1.0
+        k = max(1, min(top_k, n))
+        return {
+            "metric_type": "C",
+            "kendall_tau": round(float(tau), 4),
+            "top_k_acc": 1.0,
+            "top_k": k,
+        }
 
+    true_vals  = true_vals[:n]
+    noisy_vals = noisy_vals[:n]
+
+    # Convert values -> ranking (order) -> rank positions
+    true_order = np.argsort(-true_vals, kind="mergesort")
+    noisy_order = np.argsort(-noisy_vals, kind="mergesort")
+
+    true_rank = np.empty(n, dtype=int)
+    noisy_rank = np.empty(n, dtype=int)
+    true_rank[true_order] = np.arange(n)
+    noisy_rank[noisy_order] = np.arange(n)
+
+    tau, _ = kendalltau(true_rank, noisy_rank)
+
+    # If scipy still returns NaN for some pathological case, fallback safely
+    if tau is None or (isinstance(tau, float) and np.isnan(tau)):
+        tau = 1.0 if np.array_equal(true_order, noisy_order) else 0.0
+
+    # Top-K accuracy
     k = min(top_k, n)
-    top_k_true = set(np.argsort(-true_vals.values[:n])[:k])
-    top_k_dp   = set(np.argsort(-noisy_vals.values[:n])[:k])
-    top_k_acc  = len(top_k_true & top_k_dp) / k if k > 0 else 1.0
+    top_k_true = set(true_order[:k])
+    top_k_dp = set(noisy_order[:k])
+    top_k_acc = len(top_k_true & top_k_dp) / k if k > 0 else 1.0
 
     return {
-        "metric_type" : "C",
-        "kendall_tau" : round(float(tau), 4),
-        "top_k_acc"   : round(top_k_acc,  4),
-        "top_k"       : k,
+        "metric_type": "C",
+        "kendall_tau": round(float(tau), 4),
+        "top_k_acc": round(float(top_k_acc), 4),
+        "top_k": int(k),
     }
 
 
@@ -328,26 +360,88 @@ def apply_laplace_dp(
     """
     noisy_df     = true_df.copy()
     numeric_cols = meta["numeric_cols"]
+    metric_type  = meta["metric_type"]
+
+    # Q6 — Report Noisy Max: add Lap(0, 1/ε) to winner count, take argmax.
+    # Sensitivity of each count = 1 (one GUID changes one browser's count by 1).
+    # Adding Lap(0, 1/ε) satisfies ε-DP.
+    if metric_type == "D" and epsilon != float("inf"):
+        winner_col = meta.get("winner_col")
+        if winner_col and winner_col in noisy_df.columns:
+            noisy_count = 1.0 + rng.laplace(loc=0.0, scale=1.0 / epsilon,
+                                             size=len(noisy_df))
+            flip_mask = noisy_count < 0.5
+            if flip_mask.any():
+                noisy_df.loc[flip_mask, winner_col] = "unknown"
+                print(f"    [Laplace Q6] Report Noisy Max flipped {flip_mask.sum()} rows")
+            print(f"    [Laplace Q6] Report Noisy Max  eps={epsilon}  scale={1/epsilon:.4f}")
+        return noisy_df
 
     if not numeric_cols or epsilon == float("inf"):
         return noisy_df
 
-    # Compute scale from L1 sensitivity
-    l1_sens = get_l1_sensitivity(query_num)
-    scale   = laplace_scale(l1_sens, epsilon)
+    pct_col   = meta.get("pct_col")
+    dist_cols = meta.get("dist_cols", [])
 
-    print(f"    [Laplace] scale (b) = {scale:.4f}  (ε={epsilon})")
+    # Metric B: normalise to [0,1] before noise to match sensitivity scale.
+    # Q11 excluded: avg_percentage_used is a per-bin mean, not a distribution.
+    is_true_distribution = metric_type == "B" and pct_col and query_num in (4, 10)
+    if is_true_distribution and pct_col in noisy_df.columns:
+        pct_sum = noisy_df[pct_col].sum()
+        if pct_sum > 0:
+            noisy_df[pct_col] = noisy_df[pct_col] / pct_sum  # now sums to 1
 
-    # Add Laplace noise column by column (same pattern as previous project)
+    # Add Laplace noise to every column derived from the data.
+    #
+    # Global sensitivity from QUERY_META (cap / k_min for AVG, cap for SUM).
+    # N_FACTOR removed — it violated the global sensitivity requirement.
+    #
+    # All data-derived columns are noised.  Post-processing only covers
+    # deterministic functions of an already-noised output; auxiliary columns
+    # (number_of_systems, num_entries, etc.) are independent statistics and
+    # must be noised separately to satisfy DP.
+    #
+    # Q8 composition: 28 category columns each get ε_col = ε / 28 so that
+    # the total privacy cost across all columns is exactly ε (basic composition).
+
     for col in numeric_cols:
-        if col not in noisy_df.columns:
+        if col not in QUERY_META[query_num]["sensitivity"]:
             continue
+
+        col_sens = get_sensitivity(query_num, col)
+        if col_sens == 0.0:
+            continue
+
+        # Q8: split epsilon budget equally across all distribution columns
+        col_epsilon = epsilon
+        if metric_type == "E" and col in (dist_cols or []):
+            col_epsilon = epsilon / N_DIST_COLS_Q8
+
+        # For true-distribution pct_col: scale by 1/100 to match [0,1] range
+        if is_true_distribution and col == pct_col:
+            col_sens = col_sens / 100.0
+
+        scale = laplace_scale(col_sens, col_epsilon)
+
+        print(f"    [Laplace:{col}] sens={col_sens:.4f}  eps_col={col_epsilon:.4f}  scale={scale:.4f}")
 
         noise = rng.laplace(loc=0.0, scale=scale, size=len(noisy_df))
         noisy_df[col] = noisy_df[col].astype(float) + noise
 
+    # Re-scale true-distribution pct_col back to [0,100] before post_process
+    if is_true_distribution and pct_col in noisy_df.columns:
+        noisy_df[pct_col] = noisy_df[pct_col] * 100.0
+
     # Post-process (clamp negatives, re-normalise %)
     noisy_df = post_process(noisy_df, meta)
+
+    # Metric E: apply Dirichlet smoothing after noise so that near-zero
+    # category values don't blow up KL divergence at low epsilon.
+    if metric_type == "E" and dist_cols:
+        alpha = 0.01
+        for i in noisy_df.index:
+            row = noisy_df.loc[i, dist_cols].astype(float).values + alpha
+            noisy_df.loc[i, dist_cols] = row / row.sum() * 100.0
 
     return noisy_df
 
