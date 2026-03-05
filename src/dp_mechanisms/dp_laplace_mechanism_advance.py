@@ -338,7 +338,8 @@ def apply_laplace_dp_advance(
 #  MAIN PIPELINE
 # =============================================================================
 
-def run_laplace_advance(database: str = "mini") -> None:
+def run_laplace_advance(database: str = "mini",
+                         epsilon: float | None = None) -> None:
     """
     Advance pipeline — scale pre-computed once, then looked up per column.
     Outputs go to data/dp_laplace_{mini|full}/advance/
@@ -347,13 +348,22 @@ def run_laplace_advance(database: str = "mini") -> None:
     base_out     = DP_LAPLACE_MINI if database == "mini" else DP_LAPLACE_FULL
     variant_dir  = os.path.join(base_out, "advance")
 
+    if epsilon is not None:
+        if epsilon not in EPSILON_VALUES:
+            raise ValueError(
+                f"--epsilon {epsilon} not in EPSILON_VALUES: {EPSILON_VALUES}"
+            )
+        epsilons_to_run = [(EPSILON_VALUES.index(epsilon), epsilon)]
+    else:
+        epsilons_to_run = list(enumerate(EPSILON_VALUES))
+
     print("=" * 70)
     print("LAPLACE DP MECHANISM — ADVANCE")
     print("=" * 70)
     print(f"Database      : {database}")
     print(f"Baseline dir  : {baseline_dir}")
     print(f"Output dir    : {variant_dir}")
-    print(f"Epsilon values: {EPSILON_VALUES}")
+    print(f"Epsilon values: {[e for _, e in epsilons_to_run]}")
     print(f"Random seed   : {RANDOM_SEED}")
     print(f"Start time    : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70)
@@ -384,7 +394,7 @@ def run_laplace_advance(database: str = "mini") -> None:
         if not meta["numeric_cols"]:
             print("  ℹ  No numeric columns to perturb (Q6 — Report Noisy Max only).")
 
-        for eps_idx, epsilon in enumerate(EPSILON_VALUES):
+        for eps_idx, epsilon in epsilons_to_run:
 
             eps_str = "inf" if epsilon == float("inf") else str(epsilon)
             print(f"\n  ε = {eps_str}")
@@ -446,5 +456,15 @@ if __name__ == "__main__":
         "--database", choices=["mini", "full"], default="mini",
         help="Which database baseline to use (default: mini).",
     )
+    parser.add_argument(
+        "--epsilon",
+        type=float,
+        default=None,
+        help=(
+            "Run only this single epsilon value. Use after selecting the best "
+            "epsilon from mini results via select_best_epsilon.py. "
+            "Value must be one of the EPSILON_VALUES in dp_config.py."
+        ),
+    )
     args = parser.parse_args()
-    run_laplace_advance(database=args.database)
+    run_laplace_advance(database=args.database, epsilon=args.epsilon)
