@@ -1,0 +1,11 @@
+query_num,epsilon,metric_type,primary_col,gaussian_value,laplace_value,difference,winner
+1,1.0,RE,median_re,0.0264,0.0085,0.0179,laplace
+2,1.0,RE,median_re,0.0273,0.0105,0.0168,laplace
+3,1.0,SPEARMAN,spearman_rho,0.9978,0.9997,-0.0019,laplace
+4,1.0,RE,median_re,1.0,0.66,0.34,laplace
+5,1.0,RE,median_re,0.2186,0.1084,0.1102,laplace
+6,1.0,SPEARMAN,spearman_rho,0.0644,0.0644,0.0,tie
+7,1.0,TVD,mean_tvd,0.0829,0.0442,0.0387,laplace
+8,1.0,TVD,mean_tvd,0.1481,0.0989,0.0492,laplace
+9,1.0,RE,median_re,0.1115,0.0299,0.0816,laplace
+12,1.0,SPEARMAN,spearman_rho,0.0,0.0,0.0,tie
