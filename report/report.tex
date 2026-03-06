@@ -5,6 +5,12 @@
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{booktabs}
+\setcounter{tocdepth}{3}
+\setcounter{secnumdepth}{3}
+\usepackage[colorlinks=true,linktoc=all,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+% Figures in evaluation_results (relative to repo root when compiling from report/)
+\graphicspath{{../}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Title and Authors
@@ -37,7 +43,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{abstract}
-Telemetry data from software and hardware systems is vital for product analytics and quality monitoring, but releasing aggregate statistics can expose individuals to re-identification even when identifiers are removed. This work addresses the need for a rigorous, practical approach to sharing telemetry insights while protecting user privacy. We design and implement a differentially private query-release system: we answer a fixed set of aggregate queries over the data by adding calibrated noise to query outputs, after bounding each user's contribution so that privacy guarantees are well defined. We apply two standard mechanisms, the Laplace and the Analytic Gaussian mechanism, to 12 benchmark queries over Intel telemetry, covering battery usage, display and browser statistics, power and sleep metrics, and process rankings. A total privacy budget is allocated across queries and the system is evaluated in terms of the tradeoff between privacy parameters and the utility of released answers. The work provides a rigorous, auditable foundation for privacy-preserving telemetry analytics that can support product and quality teams without requiring access to raw user-level data.
+We design and implement a differentially private query-release system for Intel telemetry: 12 aggregate queries are answered with calibrated Laplace or Analytic Gaussian noise after per-device contribution clipping. Two variants (baseline and advance; same guarantee, advance uses scale caching) are evaluated on mini and full databases. Reported results use the baseline variant. At $\epsilon = 0.01$, Laplace matches or outperforms Gaussian on median relative error, total variation distance, and Spearman rank correlation; at $\epsilon = 1.0$ most queries pass on the full database. The advance variant attains similar utility at lower $\epsilon$ (e.g.\ 0.5). The pipeline is reproducible and provides an auditable $(\epsilon,\delta)$ guarantee.
 \end{abstract}
 
 \begin{center}
@@ -55,65 +61,72 @@ Website: \url{https://agrawalreva.github.io/intel-telemetry-capstone/}
 
 \section{Introduction}
 
-Telemetry data collected from software and hardware systems is essential for product analytics, quality monitoring, and performance tuning. Such data is typically user-level or device-level: each record is associated with an identifier (a device GUID), and multiple records can belong to the same identifier. Releasing aggregate statistics over this data enables valuable insights but poses privacy risks; even after removal of direct identifiers, datasets can remain vulnerable to re-identification and linkage attacks. Differential privacy (DP) provides a rigorous framework for releasing query answers by limiting the influence of any single individual on the output. In this work we focus on \emph{query release}: we answer a fixed set of aggregate SQL queries under DP by adding calibrated noise to their results, after bounding each user's contribution via clipping. We implement two standard mechanisms, the Laplace mechanism and the Analytic Gaussian mechanism, on Intel telemetry, with the goal of evaluating the tradeoff between privacy parameters and utility.
+Hardware and software vendors such as Intel rely on telemetry to understand how products behave in the field. They need aggregate statistics on battery usage, display and power metrics, adoption of features and configurations, and failure or performance patterns by geography, device type, and workload. These insights drive quality improvement, support prioritization, and product planning. To obtain them, vendors collect event logs and system attributes from participating devices: each record is associated with a device identifier (typically a GUID), and data is shipped to central systems for aggregation and analysis. The resulting datasets are large, high-dimensional, and user-level, which makes them valuable for analytics but also sensitive. Releasing aggregate statistics, even after stripping direct identifiers, can still enable re-identification or linkage when combined with other information. The tension between the need for actionable insights and the obligation to protect individuals is the problem we address.
+
+In this work we apply \emph{differentially private query release} to Intel telemetry. Rather than releasing raw or lightly anonymized data, we answer a fixed set of 12 analytical queries by adding calibrated noise to their outputs, after bounding each device's contribution via clipping. We implement two standard mechanisms, the Laplace and the Analytic Gaussian mechanism, and evaluate the tradeoff between privacy parameters and the utility of the released answers. The report is organised as follows. Section~\ref{sec:methods} (Methods) describes the data and reporting layer, pipeline structure, global privacy model, evaluation metrics, budget allocation, and the detailed design of each query. Section~\ref{sec:results} (Results) presents experimental results on mini and full databases, Laplace vs Gaussian comparison, and best-epsilon selection. Section~\ref{sec:discussion} (Discussion) interprets the privacy-utility tradeoff, practical implications, limitations, and threat model. Section~\ref{sec:conclusion} (Conclusion) summarises the contribution and impact.
 
 \subsection{Motivation}
 \label{sec:motivation}
 
-Organizations that collect telemetry at scale require aggregate statistics for collaboration, benchmarking, and research while protecting individual users. Removal of direct identifiers alone does not prevent inference from rich behavioral traces. Query-based release under DP offers a principled alternative: analysts receive noisy answers to predefined queries, with a formal guarantee that the probability of any output event changes by at most a multiplicative factor $e^\epsilon$ (and an additive $\delta$ when applicable) when one user's data is added or removed. Implementing this approach in practice requires (1) defining the unit of privacy (in this work, one GUID), (2) deriving and bounding each query's global sensitivity, (3) selecting a mechanism and calibrating noise to that sensitivity, and (4) accounting for composition when multiple queries are answered. This work addresses these requirements in the context of a large telemetry corpus and a fixed set of 12 analytical queries.
+Organizations that collect telemetry at scale need aggregate statistics for collaboration, benchmarking, and research while protecting individual users; removal of direct identifiers alone does not prevent inference from rich behavioral traces. Query-based release under Differential Privacy gives analysts noisy answers to predefined queries with a formal guarantee that the probability of any output changes by at most a factor $e^\epsilon$ (and an additive $\delta$ when applicable) when one user's data is added or removed. Implementing this in practice requires defining the unit of privacy (here, one GUID), deriving and bounding each query's global sensitivity, choosing a mechanism and calibrating noise to that sensitivity, and accounting for composition when multiple queries are answered. This work does that for a large telemetry corpus and a fixed set of 12 analytical queries. An alternative would be private synthetic data generation: learn a DP model of the full data distribution, generate a synthetic dataset with the same schema, and release it so that analysts can run arbitrary queries without further privacy cost. That approach offers flexibility and a one-time budget, but it fits our setting poorly. Our telemetry is large (order of terabytes), high-dimensional, and sparse, and many queries join dozens of columns (e.g., web category usage by persona, country, and CPU). Modelling the full joint distribution under DP is extremely demanding at that scale, and synthetic data tends either to over-smooth, to miss rare but important patterns, or to consume a large budget for the whole distribution instead of the summaries we need. Because we have a fixed set of 12 well-defined aggregate queries and an enterprise reporting use case, we adopt query release instead. We spend the privacy budget only on those 12 answers, bound sensitivity tightly per GUID and per query, calibrate noise to each metric type (counts, averages, histograms), and allocate epsilon per query by importance. That yields better accuracy for the statistics we actually use and keeps the guarantee auditable and the implementation tractable at scale.
 
 \subsection{Differential Privacy}
 \label{sec:dp_definitions}
 
-\paragraph{Neighboring datasets.}
-We consider datasets that differ in the records of a single user. Formally, two datasets $D$ and $D'$ are \emph{neighboring} (user-level) if one can be obtained from the other by adding or removing all records belonging to one GUID. Thus, the presence or absence of one user's entire activity is the protected change.
+Differential privacy (DP) is a mathematical definition of what it means for a randomized computation to limit the harm to an individual from participating in a dataset. The idea, due to Dwork and colleagues \cite{dwork2006calibrating,dwork2014promise}, is that the \emph{distribution} of the mechanism's output should change only slightly when one person's data is added or removed. In that way, an adversary who sees the output cannot confidently tell whether any one individual was present, so participation carries bounded privacy risk. Formally, a mechanism $\mathcal{M}$ is differentially private if for every pair of datasets that differ in one person's records, and for every subset $S$ of possible outputs, the probability $\Pr[\mathcal{M}(D) \in S]$ is close to $\Pr[\mathcal{M}(D') \in S]$. The standard way to quantify ``close'' is with two parameters: $\epsilon \geq 0$ (a multiplicative bound) and $\delta \geq 0$ (an additive slack). The central inequality is
+\begin{equation}
+\label{eq:dpdef_highlevel}
+\Pr[\mathcal{M}(D) \in S] \;\leq\; e^{\epsilon} \cdot \Pr[\mathcal{M}(D') \in S] \;+\; \delta.
+\end{equation}
+When $\delta = 0$, the guarantee is \emph{pure} $\epsilon$-differential privacy: the output distribution changes by at most a factor $e^\epsilon$ when one person's data is removed. Smaller $\epsilon$ and $\delta$ mean stronger privacy; in practice $\epsilon$ is often chosen in a range from about 0.01 (very strong) to a few units (weaker but more accurate).
 
-\paragraph{Definition of $(\epsilon,\delta)$-differential privacy.}
-A randomized mechanism $\mathcal{M}$ with range $\mathcal{R}$ satisfies $(\epsilon,\delta)$-differential privacy if for all pairs of neighboring datasets $D$, $D'$ and for all measurable sets $S \subseteq \mathcal{R}$,
+We now make this precise and then state the sensitivity and mechanisms we use.
+
+\paragraph{Neighboring datasets.}
+We use \emph{user-level} (device-level) differential privacy. Two datasets $D$ and $D'$ are \emph{neighboring}, written $D \sim D'$, if one can be obtained from the other by adding or removing all records belonging to a single GUID. So the ``one person'' whose presence or absence we protect is one device's entire contribution to the dataset.
+
+\paragraph{Formal definition.}
+A randomized mechanism $\mathcal{M}$ with range $\mathcal{R}$ satisfies \emph{$(\epsilon,\delta)$-differential privacy} if for all neighboring $D$, $D'$ and all measurable $S \subseteq \mathcal{R}$,
 \begin{equation}
 \label{eq:dpdef}
 \Pr[\mathcal{M}(D) \in S] \leq e^{\epsilon} \, \Pr[\mathcal{M}(D') \in S] + \delta.
 \end{equation}
-When $\delta = 0$, the mechanism satisfies pure $\epsilon$-differential privacy ($\epsilon$-DP). Smaller $\epsilon$ and $\delta$ imply stronger privacy.
+When $\delta = 0$, we say $\mathcal{M}$ satisfies \emph{pure} $\epsilon$-DP \cite{dwork2014promise}.
 
 \paragraph{Global sensitivity.}
-Let $f$ be a real-valued function over datasets. The \emph{global sensitivity} of $f$ is
+To add the right amount of noise, we need a bound on how much the \emph{query function} $f$ can change when one person's data changes. The \emph{global sensitivity} of $f$ is the maximum change over all neighboring datasets. For a real-valued $f$,
 \begin{equation}
-\Delta f = \max_{D \sim D'} |f(D) - f(D')|,
+\Delta f \;=\; \max_{D \sim D'} \, \bigl| f(D) - f(D') \bigr|.
 \end{equation}
-where the maximum is over all neighboring pairs $D$, $D'$. The sensitivity is a worst-case bound and must not depend on the data. We use the following rules:
-\begin{itemize}
-    \item \textbf{Count query:} $\Delta f = 1$ (adding/removing one GUID changes the count by at most 1).
-    \item \textbf{Sum query with per-GUID clipping bound $C$:} $\Delta f = C$ (one GUID can contribute at most $C$ to the sum after clipping).
-    \item \textbf{Average query:} If the average is over at least $k_{\min}$ GUIDs and each GUID's contribution is clipped to $C$, then $\Delta f = C / k_{\min}$.
-    \item \textbf{Histogram bin:} Each bin is a count; $\Delta f = 1$ per bin. For a vector of $d$ bins, if each GUID contributes to at most one bin, the $\ell_1$ sensitivity of the vector is $1$ and the $\ell_2$ sensitivity is $1$.
-\end{itemize}
+For a vector-valued $f$ with values in $\mathbb{R}^d$, we use two norms: the $\ell_1$ global sensitivity $\Delta_1 f = \max_{D \sim D'} \sum_{i=1}^d |f_i(D) - f_i(D')|$ (for the Laplace mechanism) and the $\ell_2$ global sensitivity $\Delta_2 f = \max_{D \sim D'} \|f(D) - f(D')\|_2$ (for the Gaussian mechanism). Sensitivity must be a worst-case, data-independent bound. For the query types in this work we use: \textbf{Count:} $\Delta f = 1$. \textbf{Sum with per-GUID clipping at $C$:} $\Delta f = C$. \textbf{Average} over at least $k_{\min}$ GUIDs with per-GUID contribution clipped to $C$: $\Delta f = C/k_{\min}$. \textbf{Histogram} (one bin per GUID): each GUID affects at most one bin by 1, so the $\ell_1$ sensitivity of the full vector is 1 and the $\ell_2$ sensitivity is 1.
 
 \paragraph{Laplace mechanism.}
-For a function $f$ with $\ell_1$ global sensitivity $\Delta_1 f$, the Laplace mechanism releases
+For a function $f$ with $\ell_1$ global sensitivity $\Delta_1 f$, the Laplace mechanism \cite{dwork2006calibrating,dwork2014promise} releases
 \begin{equation}
-\mathcal{M}(D) = f(D) + \text{Lap}(0, b), \quad b = \frac{\Delta_1 f}{\epsilon}.
+\mathcal{M}(D) \;=\; f(D) + \text{Lap}(0, b), \qquad b \;=\; \frac{\Delta_1 f}{\epsilon}.
 \end{equation}
-This mechanism satisfies pure $\epsilon$-DP \cite{dwork2014promise}. For vector-valued $f$, independent Laplace noise with scale $b$ is added to each coordinate (sensitivity is the $\ell_1$ norm of the per-coordinate sensitivities).
+Here $\text{Lap}(0,b)$ denotes a draw from the Laplace distribution with mean 0 and scale $b$ (so the variance is $2b^2$). This mechanism satisfies pure $\epsilon$-DP. For vector-valued $f$, we use the $\ell_1$ sensitivity of the vector and add independent $\text{Lap}(0, \Delta_1 f/\epsilon)$ to each coordinate; the resulting mechanism is $\epsilon$-DP \cite{dwork2014promise}.
 
-\paragraph{Analytic Gaussian mechanism.}
-For $(\epsilon,\delta)$-DP, the Gaussian mechanism adds $\mathcal{N}(0, \sigma^2)$ noise. The classical calibration uses $\sigma \geq (\Delta_2 f / \epsilon) \sqrt{2 \ln(1.25/\delta)}$, where $\Delta_2 f$ is the $\ell_2$ global sensitivity. The \emph{Analytic Gaussian mechanism} \cite{balle2018improving} calibrates $\sigma$ via the Gaussian CDF to obtain a tighter (smaller) noise scale for the same $(\epsilon,\delta)$, improving utility especially in high- and low-privacy regimes. We use either the classical or the analytic calibration; in both cases $\Delta_2 f$ is the Euclidean norm of the per-output sensitivity vector.
+\paragraph{Gaussian and Analytic Gaussian mechanism.}
+For $(\epsilon,\delta)$-DP, the Gaussian mechanism releases $f(D) + Z$ where $Z \sim \mathcal{N}(0, \sigma^2 I)$. The classical analysis gives a sufficient condition $\sigma \geq (\Delta_2 f / \epsilon) \sqrt{2 \ln(1.25/\delta)}$, which is not tight. The \emph{Analytic Gaussian mechanism} \cite{balle2018improving} calibrates $\sigma$ via the exact $(\epsilon,\delta)$-DP condition. For a scalar output with $\ell_2$ sensitivity $\Delta$, the mechanism is $(\epsilon,\delta)$-DP if and only if
+\begin{equation}
+\label{eq:analytic_gaussian}
+\Phi\left( \frac{\Delta}{2\sigma} - \frac{\epsilon\sigma}{\Delta} \right) \;-\; e^\epsilon \cdot \Phi\left( -\frac{\Delta}{2\sigma} - \frac{\epsilon\sigma}{\Delta} \right) \;\leq\; \delta,
+\end{equation}
+where $\Phi$ is the standard normal CDF \cite{balle2018improving}. We find the smallest $\sigma$ satisfying this inequality (e.g., by binary search). For vector-valued $f$, we use the $\ell_2$ sensitivity $\Delta_2 f$ in place of $\Delta$. This analytic calibration yields a smaller $\sigma$ than the classical bound for the same $(\epsilon,\delta)$, hence better utility.
 
-\paragraph{Composition.}
-If mechanism $\mathcal{M}_1$ is $(\epsilon_1,\delta_1)$-DP and $\mathcal{M}_2$ is $(\epsilon_2,\delta_2)$-DP, their sequential composition yields $(\epsilon_1+\epsilon_2,\, \delta_1+\delta_2)$-DP (basic composition). Advanced composition theorems allow a smaller total $\epsilon$ in exchange for a larger $\delta$. In our system we allocate a total privacy budget $\epsilon_{\text{total}}$ across the 12 queries and state the composed guarantee $(\sum_i \epsilon_i, \sum_i \delta_i)$-DP explicitly (Section~\ref{sec:budget}).
-
-\paragraph{Post-processing.}
-If $\mathcal{M}$ is $(\epsilon,\delta)$-DP and $g$ is any deterministic function, then $g \circ \mathcal{M}$ is $(\epsilon,\delta)$-DP. Clamping negative counts to zero or re-normalising percentages after adding noise is deterministic and therefore does not weaken the guarantee.
+\paragraph{Composition and post-processing.}
+If $\mathcal{M}_1$ is $(\epsilon_1,\delta_1)$-DP and $\mathcal{M}_2$ is $(\epsilon_2,\delta_2)$-DP, their sequential composition is $(\epsilon_1+\epsilon_2, \delta_1+\delta_2)$-DP (basic composition \cite{dwork2014promise}). We allocate a total budget $\epsilon_{\text{total}}$ across the 12 queries and state the composed guarantee explicitly (Section~\ref{sec:budget}). Post-processing does not weaken the guarantee: if $\mathcal{M}$ is $(\epsilon,\delta)$-DP and $g$ is any deterministic function, then $g \circ \mathcal{M}$ is $(\epsilon,\delta)$-DP. So clamping outputs to non-negative values or re-normalising percentages after adding noise costs no extra privacy.
 
 \paragraph{Report Noisy Max.}
-For queries that select the maximum over a set of candidates (for example, the winner per group), we use Report Noisy Max: add independent Laplace noise to each candidate value and return the index of the maximum noisy value. The privacy cost is one $\epsilon$ for the entire selection \cite{dwork2014promise}.
+For queries that release the identity of the maximum over a set of counts (e.g., the most popular browser per country), we use Report Noisy Max \cite{dwork2014promise}: add independent $\text{Lap}(0, 1/\epsilon)$ to each count (each count has sensitivity 1), then release the index of the maximum noisy count. The whole selection is $\epsilon$-DP.
 
 \subsection{Telemetry Data}
 \label{sec:telemetry_data}
 
-The data used in this work is Intel telemetry accessed through Globus. The source data consists of 23 tables across two schemas: \textbf{university\_analysis\_pad} and \textbf{university\_prod}. Each row is associated with a device identifier (GUID); multiple rows per GUID are common. The data exhibits heavy-tailed distributions; hence a small fraction of GUIDs can contribute disproportionately to aggregates. We therefore \emph{clip} per-GUID contributions before aggregation so that global sensitivity is bounded by a fixed constant. Concretely, we cap quantities (including the number of power-on events per GUID and the total duration per GUID in a given category) at constants $C_1$, $C_2$, and similar bounds, as specified per query in Section~\ref{sec:methods}. The aggregate query is then evaluated on the clipped view and the DP mechanism is applied to the query output. Clipping is a deterministic pre-processing step; global sensitivity is computed with respect to the clipped query function only.
+The data used in this work is Intel telemetry accessed through Globus. The source data consists of 23 tables across two schemas: \textbf{university\_analysis\_pad} and \textbf{university\_prod}. Each row is associated with a device identifier (GUID); multiple rows per GUID are common. The data exhibits heavy-tailed distributions; hence a small fraction of GUIDs can contribute disproportionately to aggregates. We therefore \emph{clip} per-GUID contributions before aggregation so that global sensitivity is bounded by a fixed constant. Concretely, we cap quantities (including the number of power-on events per GUID and the total duration per GUID in a given category) at constants $C_1$, $C_2$, and similar bounds, as specified per query in Section~\ref{sec:methods}. These caps are chosen so that global sensitivity is bounded in the worst case (e.g., when a group has exactly $k_{\min}$ devices) while still covering typical or high-percentile usage (e.g., 600\,s for display duration, 720\,min for daily sleep time, 10\,W for per-user power). The aggregate query is then evaluated on the clipped view and the DP mechanism is applied to the query output. Clipping is a deterministic pre-processing step; global sensitivity is computed with respect to the clipped query function only.
 
-We use a specialized reporting layer of 22 pre-aggregated tables built from the raw tables via a SQL build script, and we run 12 benchmark queries covering battery usage by geography and CPU family, display device vendor market share, browser popularity by country, OS-level MODS blockers, RAM utilization, persona-level web category usage, and process power rankings. The 12 query results are exported as baseline (non-private) CSVs. We then apply, per query, either the Laplace or the Analytic Gaussian mechanism (Section~\ref{sec:global_model}), with epsilon allocated via sequential composition (Section~\ref{sec:budget}). Post-processing consists of clamping numeric outputs to non-negative values where required and re-normalising percentage columns to sum to 100\% where applicable. The pipeline is developed and validated on a subsample database (approximately 5\,GB) before execution on the full dataset (approximately 3.6\,TB).
+We use a specialized reporting layer of 22 pre-aggregated tables built from the raw tables via a SQL build script, and we run 12 benchmark queries covering battery usage by geography and CPU family, display device vendor market share, browser popularity by country, OS-level MODS blockers, RAM utilization, persona-level web category usage, and process power rankings. The 12 query results are exported as baseline (non-private) CSVs. We then apply both the Laplace and the Analytic Gaussian mechanism to every query (Section~\ref{sec:global_model}), with epsilon allocated via sequential composition (Section~\ref{sec:budget}). Post-processing consists of clamping numeric outputs to non-negative values where required and re-normalising percentage columns to sum to 100\% where applicable. The pipeline is developed and validated on a subsample database (approximately 5\,GB) before execution on the full dataset (on the order of tens of GB; see repository README for current size estimates).
 
 \subsection{Applications}
 \label{sec:applications}
@@ -123,284 +136,6 @@ Privacy-preserving query release over telemetry supports usage metrics and featu
 \subsection{Related Work}
 \label{sec:related}
 
-Differential privacy was introduced in \cite{dwork2006calibrating} and is treated in depth in \cite{dwork2014promise}, which covers the Laplace and Gaussian mechanisms, global sensitivity, and composition. The Analytic Gaussian mechanism of \cite{balle2018improving} improves noise calibration for $(\epsilon,\delta)$-DP and is well suited to query release when many numeric outputs are perturbed. Query answering under DP in database and analytics settings requires bounding sensitivity (typically via clipping or projection) and allocating privacy budget across queries. In this work we do not use data-dependent sensitivity, $N$-factor scaling, or averaging over multiple draws to reduce noise; all guarantees follow from standard mechanisms and explicit sequential composition.
-
-\section{Methods}
-
-\subsection{Data Access and Reporting Layer}
-\label{sec:data_access}
-
-Raw Intel telemetry is stored in 23 tables across \texttt{university\_analysis\_pad} and \texttt{university\_prod}. We build two DuckDB databases: a subsample with each table capped at 200\,MB for development, and a full database for production. A SQL build script constructs 22 reporting tables (including \texttt{reporting.system\_batt\_dc\_events}, \texttt{reporting.system\_sysinfo\_unique\_normalized}, \texttt{reporting.system\_display\_devices}, and \texttt{reporting.system\_web\_cat\_usage}) that resolve joins and normalize column names. The 12 benchmark queries are executed against this reporting layer; their results are exported to CSV and serve as the non-private baseline. Per-query clipping is applied either in SQL or in the sensitivity analysis. All sensitivity bounds are data-independent and depend only on the clipping constants and query structure.
-
-\subsection{Global Privacy Model}
-\label{sec:global_model}
-
-\textbf{Unit of privacy.} We use \emph{user-level} differential privacy: the unit of privacy is one GUID. Neighboring datasets $D$ and $D'$ differ in all rows associated with exactly one GUID (i.e., adding or removing one user's entire activity).
-
-\textbf{Contribution bounding.} Before aggregation we apply per-GUID contribution clipping so that the influence of any single GUID on the query output is bounded. Clipping is a deterministic, data-independent pre-processing step; global sensitivity is computed with respect to the clipped query function.
-
-\textbf{Sensitivity.} For each query we derive the global sensitivity $\Delta f$ (or $\Delta_1 f$, $\Delta_2 f$ for vector outputs) from the clipping bounds and the query structure. We do not use data-dependent sensitivity.
-
-\textbf{Mechanisms.} We apply one of two mechanisms to the query output:
-\begin{itemize}
-    \item \textbf{Laplace mechanism} (pure $\epsilon$-DP): release $f(D) + \text{Lap}(0, b)$ with $b = \Delta_1 f / \epsilon$. We use Laplace for count queries, histograms, Report Noisy Max (argmax), and low-dimensional grouped aggregates.
-    \item \textbf{Analytic Gaussian mechanism} ($(\epsilon,\delta)$-DP): release $f(D) + \mathcal{N}(0, \sigma^2)$ where $\sigma$ is calibrated using the Analytic Gaussian mechanism \cite{balle2018improving}. We assign the Analytic Gaussian mechanism to high-dimensional vector outputs (Query 8), multi-metric grouped releases (Query 7), and average queries (Query 9), and the Laplace mechanism to all other queries (Queries 1 to 6 and 10 to 12; see Section~\ref{sec:methods}). For the Gaussian mechanism we fix $\delta = 10^{-6}$ per query.
-\end{itemize}
-
-\textbf{Composition.} The 12 queries are answered under \emph{sequential composition}: if query $i$ uses $(\epsilon_i, \delta_i)$-DP, the total guarantee is $(\sum_{i=1}^{12} \epsilon_i,\, \sum_{i=1}^{12} \delta_i)$-DP. We allocate a total budget $\epsilon_{\text{total}}$ so that $\sum_{i=1}^{12} \epsilon_i \leq \epsilon_{\text{total}}$. When a single query releases multiple numeric outputs, we either split that query's $\epsilon_i$ across outputs or treat the output as a vector and apply the vector-valued mechanism once; we do not treat columns as independent without accounting for composition.
-
-\textbf{Post-processing.} Deterministic post-processing (clamping to non-negative, re-normalising percentages to sum to 100\%) does not consume privacy budget and preserves $(\epsilon,\delta)$-DP.
-
-\subsection{Query 1: Battery Power On Geographic Summary}
-\label{sec:q1}
-
-\textbf{Source tables:} \texttt{reporting.system\_batt\_dc\_events} (guid, num\_power\_ons, duration\_mins), \texttt{reporting.system\_sysinfo\_unique\_normalized} (guid, countryname\_normalized).
-
-\textbf{Mathematical definition.} Group by country. For each country $c$: $f_c^{\text{sum}}(D) = (\text{Sum}(\text{num\_power\_ons}), \text{Sum}(\text{duration\_mins}))$ after clipping; $f_c^{\text{count}}(D) = \text{Count}(\text{GUIDs})$. We release sums and count, or averages as noisy sum / max(noisy count, $k_{\min}$).
-
-\textbf{Contribution bounding.} For each GUID: clip total \texttt{num\_power\_ons} to $C_1 = 10$ and total \texttt{duration\_mins} to $C_2 = 60$. Averages use $k_{\min} = 100$ so $\Delta_{\text{avg}} = C/k_{\min}$.
-
-\textbf{Sensitivity.} Per country: $\Delta \,\text{Sum}(\text{num\_power\_ons}) = C_1$, $\Delta \,\text{Sum}(\text{duration\_mins}) = C_2$, $\Delta \,\text{Count} = 1$. Each GUID in one country (parallel composition across countries). L1 $= C_1 + C_2 + 1$; L2 $= \sqrt{C_1^2 + C_2^2 + 1}$.
-
-\textbf{Mechanism:} Laplace (low-dimensional grouped aggregate). Epsilon: $\epsilon_1$ (medium).
-
-\textbf{Post-processing:} Clamp counts and sums $\geq 0$; averages from noisy sum/count with floor.
-
-\subsection{Query 2: Battery On Duration by CPU Family and Generation}
-\label{sec:q2}
-
-\textbf{Source tables:} \texttt{reporting.system\_cpu\_metadata} (guid, marketcodename, cpugen), \texttt{reporting.system\_batt\_dc\_events} (guid, duration\_mins).
-
-\textbf{Mathematical definition.} Group by (marketcodename, cpugen). $f_g(D) = \text{Sum}(\text{duration\_mins})$ and count, after per-GUID clipping.
-
-\textbf{Contribution bounding.} Clip each GUID's total \texttt{duration\_mins} to $C = 60$.
-
-\textbf{Sensitivity.} $\Delta \,\text{Sum} = C$, $\Delta \,\text{Count} = 1$. L1 $= C + 1$; L2 $= \sqrt{C^2 + 1}$.
-
-\textbf{Mechanism:} Laplace. Epsilon: $\epsilon_2$ (medium). \textbf{Post-processing:} Clamp $\geq 0$.
-
-\subsection{Query 3: Display Devices Connection Type Resolution Durations AC/DC}
-\label{sec:q3}
-
-\textbf{Source tables:} \texttt{reporting.system\_display\_devices} (guid, connection\_type, resolution\_height, resolution\_width, duration\_ac, duration\_dc).
-
-\textbf{Mathematical definition.} Group by (connection\_type, resolution\_height, resolution\_width). Per group: $\text{Sum}(\text{duration\_ac})$, $\text{Sum}(\text{duration\_dc})$, count.
-
-\textbf{Contribution bounding.} Clip per-GUID \texttt{duration\_ac} and \texttt{duration\_dc} to $C_{\text{ac}} = C_{\text{dc}} = 3600$ seconds.
-
-\textbf{Sensitivity.} $\Delta \,\text{Sum}(\text{duration\_ac}) = C_{\text{ac}}$, $\Delta \,\text{Sum}(\text{duration\_dc}) = C_{\text{dc}}$, $\Delta \,\text{Count} = 1$. L1 $= C_{\text{ac}} + C_{\text{dc}} + 1$. One vector per group; charge $\epsilon_3$ once for full query.
-
-\textbf{Mechanism:} Laplace. Epsilon: $\epsilon_3$ (smaller). \textbf{Post-processing:} Clamp $\geq 0$.
-
-\subsection{Query 4: Display Devices Vendors Percentage}
-\label{sec:q4}
-
-\textbf{Source tables:} \texttt{reporting.system\_display\_devices} (guid, vendor\_name).
-
-\textbf{Mathematical definition.} Count per vendor; total count. Percentage = (count / total)$\times 100$. Each GUID contributes at most 1 to one vendor.
-
-\textbf{Contribution bounding.} Each GUID contributes at most 1 to one vendor bin. $\Delta = 1$ per bin; total count $\Delta = 1$. We release noisy (count per vendor, total); percentages computed after noise (post-processing).
-
-\textbf{Mechanism:} Laplace (histogram). Epsilon: $\epsilon_4$ (smaller).
-
-\textbf{Post-processing:} Clamp counts $\geq 0$; compute percentages from noisy counts; re-normalise to sum to 100\%.
-
-\subsection{Query 5: MODS Blockers by OS Name and Codename}
-\label{sec:q5}
-
-\textbf{Source tables:} \texttt{reporting.system\_mods\_top\_blocker\_hist} (guid, dt), \texttt{reporting.system\_os\_codename\_history} (guid, min\_ts, max\_ts, os\_name, os\_codename). Join on GUID and time windows.
-
-\textbf{Mathematical definition.} Count per (os\_name, os\_codename). Each GUID bounded to contribute at most 1 per bin (distinct-GUID count) or cap total entries per GUID at $C_{\text{entries}}$.
-
-\textbf{Contribution bounding.} We use $\Delta = 1$ per bin for distinct-GUID counts. For $B$ bins: vector L1 $\leq B$, L2 $\leq \sqrt{B}$.
-
-\textbf{Mechanism:} Laplace (histogram). Epsilon: $\epsilon_5$ (smaller). \textbf{Post-processing:} Clamp $\geq 0$.
-
-\subsection{Query 6: Most Popular Browser in Each Country by System Count}
-\label{sec:q6}
-
-\textbf{Source tables:} \texttt{reporting.system\_sysinfo\_unique\_normalized} (guid, countryname\_normalized), \texttt{reporting.system\_web\_cat\_usage} (guid, browser).
-
-\textbf{Mathematical definition.} Per country: release $\arg\max_{\text{browser}} \text{Count}(\text{GUIDs})$. Each GUID contributes 1 to one (country, browser) cell; $\Delta = 1$ per count.
-
-\textbf{Mechanism:} \textbf{Report Noisy Max.} Per country: add Laplace(0, $1/\epsilon_6$) to each browser count; select argmax. We allocate a single $\epsilon_6$ for the entire query (moderate); composition across countries is accounted for.
-
-\textbf{Post-processing:} None beyond argmax.
-
-\subsection{Query 7: On/Off MODS Sleep Summary by CPU Market Codename and Generation}
-\label{sec:q7}
-
-\textbf{Source tables:} \texttt{reporting.system\_on\_off\_suspend\_time\_day} (guid, on\_time, off\_time, mods\_time, sleep\_time), \texttt{reporting.system\_cpu\_metadata} (guid, marketcodename, cpugen).
-
-\textbf{Mathematical definition.} Group by (marketcodename, cpugen). Per group: $\text{Sum}(\text{on\_time})$, $\text{Sum}(\text{off\_time})$, $\text{Sum}(\text{mods\_time})$, $\text{Sum}(\text{sleep\_time})$, count. Averages or percentages derived from these.
-
-\textbf{Contribution bounding.} Clip per-GUID total time per category to $C_{\text{on}}, C_{\text{off}}, C_{\text{mods}}, C_{\text{sleep}}$ (in our implementation, 1440 minutes per day per category). $\Delta \,\text{Sum} =$ the respective $C$ for each time column; $\Delta \,\text{Count} = 1$. L1 $= C_{\text{on}} + C_{\text{off}} + C_{\text{mods}} + C_{\text{sleep}} + 1$.
-
-\textbf{Mechanism:} Analytic Gaussian (multi-metric grouped release). Epsilon: $\epsilon_7$ (medium). Composition: one vector release per group; total $\epsilon_7$ for this query.
-
-\textbf{Post-processing:} Clamp $\geq 0$; re-normalise percentages if computed.
-
-\subsection{Query 8: Persona Web Category Usage Analysis}
-\label{sec:q8}
-
-\textbf{Source tables:} \texttt{reporting.system\_sysinfo\_unique\_normalized} (guid, persona), \texttt{reporting.system\_web\_cat\_pivot\_duration} (guid, $\sim$30 web category duration columns).
-
-\textbf{Mathematical definition.} Per persona: number\_of\_systems, days, and $\sim$30 category duration columns (sums or averages). Output is a high-dimensional vector. We treat the entire persona-category vector as a \emph{single} vector-valued query.
-
-\textbf{Contribution bounding.} Clip per-GUID per-category contribution to $C$; then $\Delta \,\text{Sum}_j = C$ per category $j$. The L1 sensitivity of the full vector is $\sum_j \Delta_j$ (in our case $30C$ for 30 category columns). For averages we use $\Delta_{\text{avg}} = C/k_{\min}$ per column. We do \emph{not} treat each column as an independent release; one mechanism call for the full vector.
-
-\textbf{Mechanism:} Analytic Gaussian (high-dimensional vector). Epsilon: $\epsilon_8$ (larger; $\approx 20\%$ of $\epsilon_{\text{total}}$). $\sigma$ calibrated to L2 sensitivity of the vector.
-
-\textbf{Post-processing:} Clamp $\geq 0$; re-normalise distribution columns to sum to 1 or 100\%.
-
-\subsection{Query 9: Package Power by Country}
-\label{sec:q9}
-
-\textbf{Source tables:} \texttt{reporting.system\_sysinfo\_unique\_normalized} (guid, countryname\_normalized), \texttt{reporting.system\_hw\_pkg\_power} (guid, nrs, mean).
-
-\textbf{Mathematical definition.} Group by country. Per country: sum of (clipped) mean power, count. Average = sum / max(count, $k_{\min}$). Clip per-GUID mean to $C = 50$ watts; $k_{\min} = 100$. $\Delta \,\text{Sum} = C$, $\Delta \,\text{Count} = 1$; $\Delta_{\text{avg}} = C/k_{\min}$.
-
-\textbf{Mechanism:} Analytic Gaussian (average query). Epsilon: $\epsilon_9$ (medium). \textbf{Post-processing:} Clamp $\geq 0$.
-
-\subsection{Query 10: Popular Browsers by Count Usage Percentage}
-\label{sec:q10}
-
-\textbf{Source tables:} \texttt{reporting.system\_web\_cat\_usage} (guid, browser, duration\_ms).
-
-\textbf{Mathematical definition.} Per browser: count of GUIDs, total duration (clipped). Percentages computed in post-processing from noisy counts and sums. Clip per-GUID duration to $C$. $\Delta \,\text{Count} = 1$, $\Delta \,\text{Sum}(\text{duration}) = C$ per browser.
-
-\textbf{Mechanism:} Laplace (count and sum). Epsilon: $\epsilon_{10}$ (smaller).
-
-\textbf{Post-processing:} Clamp counts and sums $\geq 0$; compute percentages; re-normalise to sum to 100\%.
-
-\subsection{Query 11: RAM Utilization Histogram}
-\label{sec:q11}
-
-\textbf{Source tables:} \texttt{reporting.system\_memory\_utilization} (guid, sysinfo\_ram, nrs, avg\_percentage\_used).
-
-\textbf{Mathematical definition.} Histogram bins are defined over the RAM dimension (in our schema, \texttt{ram\_gb}). Each GUID contributes to exactly one bin. Per bin we release the count and optionally the average of \texttt{avg\_percentage\_used}. Adding or removing one GUID changes exactly one bin's count by 1. Hence the \textbf{L1 sensitivity of the full histogram vector is 1}.
-
-\textbf{Mechanism:} Laplace (histogram). Epsilon: $\epsilon_{11}$ (smaller). \textbf{Post-processing:} Clamp $\geq 0$; optionally re-normalise.
-
-\subsection{Query 12: Ranked Process Classifications}
-\label{sec:q12}
-
-\textbf{Source tables:} \texttt{reporting.system\_mods\_power\_consumption} (user\_id, total\_power\_consumption).
-
-\textbf{Mathematical definition.} $\text{Sum}(\text{total\_power\_consumption})$ per process, with per-user clipping at $C = 100$. Ranking = order of noisy sums (post-processing). Optionally release only top process via Report Noisy Max.
-
-\textbf{Sensitivity.} $\Delta \,\text{Sum} = C$ per process. Full vector L1 = $C \times \text{(\# groups)}$ if one GUID affects one group.
-
-\textbf{Mechanism:} Laplace (sum query; ranking from noisy values). For top-only: Report Noisy Max. Epsilon: $\epsilon_{12}$ (moderate).
-
-\textbf{Post-processing:} Clamp $\geq 0$. Ranking is deterministic post-processing of noisy outputs.
-
-\subsection{Privacy Budget Allocation}
-\label{sec:budget}
-
-We fix a total privacy budget $\epsilon_{\text{total}}$ and allocate per-query budgets $\epsilon_1, \ldots, \epsilon_{12}$ such that $\sum_{i=1}^{12} \epsilon_i \leq \epsilon_{\text{total}}$. Allocation policy: Query 8 (high-dimensional) receives approximately 20\% of $\epsilon_{\text{total}}$; core usage queries Q1, Q2, Q7, Q9 receive a medium allocation (approximately 8 to 10\% each); simple histograms and counts (Q4, Q5, Q10, Q11) receive a smaller allocation (approximately 4 to 5\% each); ranking and winner queries (Q6, Q12) receive a moderate allocation (approximately 6 to 8\% each); Q3 receives a smaller allocation. For the Analytic Gaussian mechanism we fix $\delta = 10^{-6}$ per query. Under sequential composition the full system satisfies $(\epsilon_{\text{total}}, \delta_{\text{total}})$-DP with $\epsilon_{\text{total}} = \sum_{i=1}^{12} \epsilon_i$ and $\delta_{\text{total}} = \sum_{i=1}^{12} \delta_i = 12 \times 10^{-6}$.
-
-\section{Results}
-\label{sec:results}
-
-(To be filled after DP mechanisms are implemented for all queries and the pipeline has been run and evaluated.)
-
-\subsection{Experimental Setup}
-\label{sec:exp_setup}
-
-% (To be filled.)
-
-\subsection{Privacy Parameters}
-\label{sec:privacy_params}
-
-% (To be filled.)
-
-\subsection{Utility Metrics}
-\label{sec:utility_metrics}
-
-% (To be filled.)
-
-\subsection{Laplace vs Gaussian Comparison}
-\label{sec:laplace_vs_gaussian}
-
-% (To be filled.)
-
-\subsection{Sensitivity Analysis}
-\label{sec:sensitivity_analysis}
-
-% (To be filled.)
-
-\section{Discussion}
-\label{sec:discussion}
-
-(To be filled after results are available.)
-
-\subsection{Privacy and Utility Tradeoff}
-\label{sec:disc_tradeoff}
-
-% (To be filled.)
-
-\subsection{Practical Implications}
-\label{sec:disc_practical}
-
-% (To be filled.)
-
-\subsection{Limitations}
-\label{sec:disc_limitations}
-
-% (To be filled.)
-
-\subsection{Assumptions and Threat Model}
-\label{sec:disc_threat}
-
-% (To be filled.)
-
-\subsection{Deployment Considerations}
-\label{sec:disc_deployment}
-
-% (To be filled.)
-
-\section{Conclusion}
-\label{sec:conclusion}
-
-\subsection{Summary}
-% (To be filled after results and discussion are complete. Will summarize the DP query release system, key findings from evaluation, and how well Laplace vs Analytic Gaussian performed across the 12 queries.)
-
-\subsection{Impact}
-% (To be filled.)
-
-\subsection{Future Work}
-Future work includes extension to additional queries, exploration of advanced composition and optimal epsilon allocation, comparison with other mechanisms (for example, the exponential mechanism for rankings), and full-scale evaluation on the complete dataset.
-
-\subsection{Acknowledgements}
-We thank our project advisor and Intel for access to the telemetry data and for the query set that motivated our specialized schema.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% References
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\makereference
-\bibliography{reference}
-\bibliographystyle{style/dsc180bibstyle}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Appendix
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\clearpage
-\makeappendix
-
-\subsection{Appendix A: Contributions}
-\begin{itemize}
-    \item \textbf{Reva Agrawal}: Carried out the exploration of the 22 SQL queries to identify the tables and columns required to build the specialized schema. Confirmed and refined the pipeline and evaluation metrics with the project advisor and debugged its implementation. Wrote sections 1 and 2 of the report based on progressive work over the course of the project.
-    \item \textbf{Dhruv Patel}: Responsible for the design and construction of the database and pipeline, including setting up DuckDB from the raw data, building the reporting layer in SQL, and writing the scripts to export the baseline. Implemented both differential privacy mechanisms (Laplace and Gaussian). Designed the per-query evaluation metrics in line with the project mentor's feedback. Ensured that no sensitive data was committed to the repository.
-    \item \textbf{Jordan Lambino}: Developed code for the project website, added to website design, and included information in the Introduction and Methods sections. Assisted with query exploration. Wrote parts of the Introduction section and reviewed the report for accuracy.
-\end{itemize}
-
-\subsection{Appendix B: Project Proposal}
-\url{https://drive.google.com/file/d/1-uWLW_FLOvIJ-335J9SwYmFleC-lXZaR/view?usp=sharing}
-
-\subsection{Appendix C: Additional Materials}
-Schema Exploration: \url{https://docs.google.com/document/d/1XfkwK9zN7aP9EJ5fI-bRJ5eS9TzQZW_oRQ9NwRilQeo/edit?usp=sharing}
+Differential privacy was introduced in \cite{dwork2006calibrating} and is treated in depth in \cite{dwork2014promise}, which covers the Laplace and Gaussian mechanisms, global sensitivity, and composition. The Analytic Gaussian mechanism of \cite{balle2018improving} improves noise calibration for $(\epsilon,\delta)$-DP and is well suited to query release when many numeric outputs are perturbed. Query answering under DP in database and analytics settings requires bounding sensitivity (typically via clipping or projection) and allocating privacy budget across queries. In this work all guarantees follow from standard mechanisms, global sensitivity derived from clipping and query structure, and explicit sequential composition.
 
 \end{document}
