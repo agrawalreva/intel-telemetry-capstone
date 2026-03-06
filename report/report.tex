@@ -525,4 +525,116 @@ Output: ranked list of (user\_id, total\_power\_consumption) by $f(D)_u$ descend
 
 \textbf{Post-processing:} Clamp $\geq 0$; ranking is deterministic post-processing.
 
+\subsection{Privacy Budget Allocation}
+\label{sec:budget}
+
+We fix a total privacy budget $\epsilon_{\text{total}}$ and allocate per-query budgets $\epsilon_1, \ldots, \epsilon_{12}$ such that
+\[
+\sum_{i=1}^{12} \epsilon_i \leq \epsilon_{\text{total}}.
+\]
+The allocation reflects the sensitivity and dimensionality of each query: Query 8 (28-dimensional) receives a larger share (about 20\% of $\epsilon_{\text{total}}$), with $\epsilon_8$ consumed either by splitting $\epsilon_8/28$ per category column (basic composition) or by one vector-valued release with joint sensitivity (Section~\ref{sec:q8}). Core usage queries Q1, Q2, Q7, Q9 receive a medium allocation; simple histograms and percentages (Q4, Q5, Q10, Q11) receive a smaller allocation; ranking and Report Noisy Max (Q6, Q12) receive a moderate allocation; Q3 receives a smaller allocation. For the Analytic Gaussian mechanism we fix $\delta = 10^{-6}$ per query. Under sequential composition the full system satisfies $(\epsilon_{\text{total}}, \delta_{\text{total}})$-DP with $\epsilon_{\text{total}} = \sum_{i=1}^{12} \epsilon_i$ and $\delta_{\text{total}} = \sum_{i=1}^{12} \delta_i = 12 \times 10^{-6}$.
+
+\subsection{Multiple Epsilon Evaluation and the Privacy-Utility Curve}
+\label{sec:multi_epsilon}
+
+We run the pipeline at a range of $\epsilon$ values ($\epsilon \in \{0.01, 0.05, 0.1, 0.5, 1.0, \infty\}$) so that we can trace the privacy-utility curve and choose an operating point for the full database without running every $\epsilon$ on the expensive full run. At each $\epsilon$ we use the same allocation of $\epsilon_{\text{total}}$ across the 12 queries; only the scale of the noise changes. For each query and each $\epsilon$ we compute the corresponding evaluation metric (median relative error, total variation distance, or Spearman rank correlation) and record the gap between the true and DP outputs. This yields a \emph{privacy-utility curve}: gap as a function of $\epsilon$. Typically, smaller $\epsilon$ gives larger gap (more noise, lower utility), and larger $\epsilon$ gives smaller gap (less noise, higher utility). We report results for both the Laplace and the Analytic Gaussian mechanism at each $\epsilon$ so that we can compare the two mechanisms. The ``best'' $\epsilon$ in a given context is the smallest $\epsilon$ at which utility remains acceptable (e.g., mean utility preservation at or above a target); that value represents the strongest privacy guarantee under which the released statistics are still usable. We do not assume a single universal best $\epsilon$; the evaluation is intended to inform the choice of $\epsilon$ (and mechanism) depending on which queries and which gap levels are deemed acceptable for deployment.
+
+\section{Results}
+\label{sec:results}
+
+All results and figures in this section use the \textbf{baseline} mechanism variant (Section~\ref{sec:mechanism_variants}). The baseline and advance variants are mathematically identical; the advance variant precomputes noise scales for speed and often achieves similar utility at a lower $\epsilon$ (see Discussion). We report results from the mini (subsample) and full databases. The evaluation compares Laplace and Analytic Gaussian mechanisms across a range of $\epsilon$ values and identifies a recommended $\epsilon$ for production use with the baseline variant.
+
+\subsection{Experimental Setup}
+\label{sec:exp_setup}
+
+Experiments were run on two database tiers: \textbf{mini}, a subsample with capped table sizes (approximately 5\,GB), and \textbf{full}, the production-scale database. We evaluate all six $\epsilon$ values on mini to trace the privacy-utility curve and to select one $\epsilon$ for the full run; the full database was then run only at that selected $\epsilon$ to avoid the cost of running every $\epsilon$ on the full scale. The epsilon grid was $\epsilon \in \{0.01, 0.05, 0.1, 0.5, 1.0, \infty\}$. All mechanism runs used a fixed random seed for reproducibility. Results below are for the \textbf{baseline} variant; evaluation summaries and per-query comparison tables were produced for both mini and full. The \textbf{advance} variant is evaluated separately and selects a lower best $\epsilon$ on mini (Section~\ref{sec:disc_interpretation}).
+
+\subsection{Privacy Parameters}
+\label{sec:privacy_params}
+
+For the Laplace mechanism we use pure $\epsilon$-DP ($\delta = 0$). For the Analytic Gaussian mechanism we set $\delta = 10^{-6}$ per query; under sequential composition across 12 queries the full system satisfies $(\epsilon_{\text{total}}, 12 \times 10^{-6})$-DP. Sensitivity per query is derived from the clipping constants and $k_{\min}$ (e.g., $\Delta = C/k_{\min}$ for averages, $\Delta = C$ for sums, $\Delta = 1$ for counts and conservative percentage columns).
+
+\subsection{Utility Metrics and Pass Rates}
+\label{sec:utility_metrics}
+
+Utility is measured per query by the metric type assigned in Section~\ref{sec:eval_metrics_methods}: median relative error for queries 1, 2, 4, 5, and 9; total variation distance for queries 7, 8, 10, and 11; Spearman rank correlation for queries 3, 6, and 12. Pass thresholds are median relative error $\leq 0.25$, total variation distance $\leq 0.15$, and Spearman $\rho \geq 0.5$. At $\epsilon = 0.01$ (strong privacy), most queries fail the hard threshold; at $\epsilon = 1.0$ or $\infty$, most pass. For example, on the mini database with Laplace, queries 1, 2, 3, 4, 5, 7, 8, 9 each achieve their best (lowest median relative error or total variation distance, or highest Spearman rank correlation) at $\epsilon = \infty$; at $\epsilon = 0.01$ the worst-case median relative error reaches 1.0 for several queries and total variation distance reaches about 0.55 to 0.63 for Q7 and Q8. Query 5 (MODS blockers) is particularly sensitive: median relative error at $\epsilon = 0.01$ is 6.76 (Laplace) and 18.16 (Gaussian) due to the small number of groups (11 rows in mini). Query 6 (most popular browser) and query 12 (ranked processes) show near-constant or zero Spearman rank correlation on mini (tied or degenerate rankings).
+
+\subsection{Laplace vs Gaussian Comparison}
+\label{sec:laplace_vs_gaussian}
+
+Table~\ref{tab:lap_vs_gauss} summarises the comparison at $\epsilon = 0.01$ and $\epsilon = 1.0$ on the mini database. At strong privacy ($\epsilon = 0.01$), Laplace consistently matches or outperforms Gaussian: for median-relative-error queries the median relative error is lower under Laplace (e.g., Q1: 0.85 vs 1.0; Q5: 6.76 vs 18.16), and for Spearman-rank-correlation queries Laplace gives higher correlation (e.g., Q3: 0.47 vs 0.20). For total variation distance (Q7, Q8, Q10, Q11), Laplace again yields lower total variation distance at $\epsilon = 0.01$. At $\epsilon = 1.0$, both mechanisms improve; Laplace remains slightly better on most queries. Across (query, $\epsilon$) pairs, Laplace is the better or tied option in the majority of cases; ties occur at $\epsilon = \infty$ or when both metrics are at the floor or ceiling.
+
+\begin{table}[htbp]
+\centering
+\caption{Laplace vs Gaussian on mini database (baseline): metric value at $\epsilon = 0.01$ and $\epsilon = 1.0$. Median relative error and total variation distance: lower better; Spearman $\rho$: higher better.}
+\label{tab:lap_vs_gauss}
+\small
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+\textbf{Query} & \textbf{Metric} & \textbf{Laplace} $\epsilon{=}0.01$ & \textbf{Gauss.} $\epsilon{=}0.01$ & \textbf{Laplace} $\epsilon{=}1$ & \textbf{Gauss.} $\epsilon{=}1$ \\
+\midrule
+Q1 & Median rel.\ err. & 0.85 & 1.00 & 0.009 & 0.026 \\
+Q2 & Median rel.\ err. & 1.00 & 1.00 & 0.011 & 0.029 \\
+Q3 & Spearman $\rho$ & 0.47 & 0.20 & 1.00 & 1.00 \\
+Q4 & Median rel.\ err. & 1.00 & 1.00 & 0.97 & 1.00 \\
+Q5 & Median rel.\ err. & 6.76 & 18.16 & 0.18 & 0.29 \\
+Q6 & Spearman $\rho$ & 0.007 & 0.007 & 0.007 & 0.007 \\
+Q7 & TVD & 0.63 & 0.69 & 0.044 & 0.091 \\
+Q8 & TVD & 0.56 & 0.58 & 0.17 & 0.28 \\
+Q9 & Median rel.\ err. & 1.00 & 1.00 & 0.029 & 0.11 \\
+Q12 & Spearman $\rho$ & 0.00 & 0.00 & 0.00 & 0.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Best Epsilon Selection}
+\label{sec:best_epsilon}
+
+We compute a utility-preservation score for each $\epsilon$ by comparing each query's DP metric value to that same query's no-noise baseline at $\epsilon = \infty$; the score is the fraction of baseline utility preserved (scale-agnostic). Selection uses two tiers (as in the repository README): Tier 1 is the smallest $\epsilon$ where mean preservation across queries reaches 80\%; Tier 2, if no $\epsilon$ reaches 80\%, is the $\epsilon$ with the highest mean preservation. On the mini database, no $\epsilon$ reached 80\% (many queries have zero or near-zero baseline), so the logic chose $\epsilon = \textbf{1.0}$ as the best available (highest mean utility preserved) for both Laplace and Gaussian; runner-up was 0.5. Full-database runs were therefore executed at $\epsilon = 1.0$ only, avoiding the cost of running every $\epsilon$ on the full database. At $\epsilon = 1.0$, full-database results show that most queries pass their thresholds under both mechanisms; exceptions include Q4 (vendor percentage) and Q6 (browser winner), which remain difficult due to distribution shape or categorical nature.
+
+\subsection{Full-Database Results at $\epsilon = 1.0$}
+\label{sec:full_results}
+
+On the full database at $\epsilon = 1.0$, Laplace achieves median relative error below 0.03 for Q1, Q2, and Q9; Q5 has median relative error 0.11 (Laplace) and 0.22 (Gaussian). Spearman $\rho \geq 0.99$ for Q3; total variation distance 0.044 (Q7) and 0.099 (Q8). Gaussian yields slightly higher median relative error and total variation distance at the same $\epsilon$. Q4 and Q6 do not meet the hard pass threshold on full at $\epsilon = 1.0$ (median relative error 0.66 for Q4 Laplace; Spearman $\rho$ 0.064 for Q6), indicating that either a larger $\epsilon$ or a different mechanism (e.g., Report Noisy Max explicitly for Q6) would be needed for deployment.
+
+\subsection{Privacy-Utility Figures}
+\label{sec:results_figures}
+
+Figure~\ref{fig:privacy_utility_curves} shows the privacy-utility curves by metric type: as $\epsilon$ increases, median relative error and total variation distance decrease and Spearman $\rho$ increases. Figure~\ref{fig:mechanism_comparison} compares Laplace and Gaussian across queries and $\epsilon$. Figure~\ref{fig:pass_rate} gives the fraction of queries passing the hard threshold versus $\epsilon$. Figure~\ref{fig:best_epsilon} summarises the best $\epsilon$ per query and mechanism. Figure~\ref{fig:pareto} illustrates the Pareto frontier (privacy gain vs utility loss), highlighting the tradeoff between stronger privacy and preserved utility.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\textwidth]{visuals/01_privacy_utility_curves_mini.png}
+\caption{Privacy-utility curves (mini database): median relative error, total variation distance, and Spearman $\rho$ vs $\epsilon$.}
+\label{fig:privacy_utility_curves}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\textwidth]{visuals/03_mechanism_comparison_mini.png}
+\caption{Laplace vs Gaussian across queries and $\epsilon$.}
+\label{fig:mechanism_comparison}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\textwidth]{visuals/04_pass_rate_mini.png}
+\caption{Pass rate (fraction of queries meeting the threshold) vs $\epsilon$.}
+\label{fig:pass_rate}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{visuals/05_best_epsilon_summary_mini.png}
+\caption{Best $\epsilon$ per query and mechanism (mini database); vertical line indicates the selected $\epsilon = 1.0$ for full-database runs.}
+\label{fig:best_epsilon}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{visuals/06_pareto_frontier_mini.png}
+\caption{Pareto frontier: privacy (smaller $\epsilon$) vs utility preservation. Points show the tradeoff across the $\epsilon$ grid.}
+\label{fig:pareto}
+\end{figure}
+
 \end{document}
