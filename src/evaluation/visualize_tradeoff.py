@@ -52,7 +52,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DATA_DIR = os.path.join(ROOT_DIR, "data")
-EVAL_DIR = os.path.join(DATA_DIR, "evaluation_results")
+EVAL_DIR = os.path.join(ROOT_DIR, "evaluation_results")
 
 EPS_INF_NUM = 1000.0   # numeric stand-in for epsilon = inf on log-scale plots
 

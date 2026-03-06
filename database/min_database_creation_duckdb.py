@@ -3,23 +3,24 @@ import os
 from pathlib import Path
 
 # ============================================================================
-# DATABASE NAME CONFIGURATION
+# PATH CONFIGURATION
 # ============================================================================
-# Change this name when sharing with your group
-DATABASE_NAME = "data_mini.duckdb"  # <--- Mini version with max 200MB per table
-# ============================================================================
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+
+DATABASE_PATH = REPO_ROOT / "data_mini.duckdb"
 
 # Path to your database_tables folder
-DATABASE_TABLES_PATH = r"D:\capstone data\database_tables"
+DATABASE_TABLES_PATH = r""# Due to confidentiality requirements, we are not permitted to share the path. but if you have access to the data, you can set this to the root folder containing the table subfolders.
 
 # Maximum size per table in bytes (200 MB)
 MAX_SIZE_MB = 200
-MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024  # Convert to bytes
+MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 
-# Connect to DuckDB (creates the database file if it doesn't exist)
-conn = duckdb.connect(DATABASE_NAME)
+# Connect to DuckDB
+conn = duckdb.connect(str(DATABASE_PATH))
 
-print(f"Creating database: {DATABASE_NAME}")
+print(f"Creating database: {DATABASE_PATH}")
 print(f"Max size per table: {MAX_SIZE_MB} MB")
 print("=" * 60)
 
@@ -226,6 +227,7 @@ for schema_name in ['university_analysis_pad', 'university_prod']:
 conn.close()
 
 print("\n" + "=" * 60)
-print(f"Database '{DATABASE_NAME}' created successfully!")
-print(f"To use it: duckdb {DATABASE_NAME}")
+print(f"Database '{DATABASE_PATH.name}' created successfully!")
+print(f"Location: {DATABASE_PATH}")
+print(f"To use it: duckdb {DATABASE_PATH}")
 print("=" * 60)

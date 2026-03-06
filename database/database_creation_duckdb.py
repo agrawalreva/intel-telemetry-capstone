@@ -1,16 +1,21 @@
 import duckdb
 import os
+from pathlib import Path
 
 # ============================================================================
-# DATABASE NAME CONFIGURATION
+# PATH CONFIGURATION
 # ============================================================================
-DATABASE_NAME = "data.duckdb"
-# ============================================================================
-DATABASE_TABLES_PATH = r"D:\capstone data\database_tables"
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
 
-conn = duckdb.connect(DATABASE_NAME)
+DATABASE_PATH = REPO_ROOT / "data.duckdb"
 
-print(f"Creating database: {DATABASE_NAME}")
+# Point this to wherever your raw source folders live
+DATABASE_TABLES_PATH = r""# Due to confidentiality requirements, we are not permitted to share the path. but if you have access to the data, you can set this to the root folder containing the table subfolders.
+
+conn = duckdb.connect(str(DATABASE_PATH))
+
+print(f"Creating database: {DATABASE_PATH}")
 print("=" * 60)
 
 # Create schemas
@@ -134,6 +139,7 @@ for schema_name in ['university_analysis_pad', 'university_prod']:
 conn.close()
 
 print("\n" + "=" * 60)
-print(f"Database '{DATABASE_NAME}' created successfully!")
-print(f"To use it: duckdb {DATABASE_NAME}")
+print(f"Database '{DATABASE_PATH.name}' created successfully!")
+print(f"Location: {DATABASE_PATH}")
+print(f"To use it: duckdb {DATABASE_PATH}")
 print("=" * 60)
