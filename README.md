@@ -49,46 +49,59 @@ This project implements a complete differential privacy pipeline for analyzing I
 ✅ **Analytic Gaussian calibration** — uses Balle & Wang (2018) tight sigma calibration (10–30% less noise vs. classic formula)  
 ✅ **Reproducible results** — fixed seeded for-loop, same pattern as the telemetry project  
 ✅ **Production-ready code** — idempotent scripts, error handling, logging  
-✅ **Well-documented** — inline comments, architecture diagrams, usage examples   
+✅ **Well-documented** — inline comments, architecture diagrams, usage examples  
 
 ---
 
 ## Repository Structure
 
 ```
-intel-telementry-capstone/
+intel-telemetry-capstone/
 │
 ├── README.md                          # Project overview and build instructions
 ├── requirements.txt                   # Python package dependencies
 ├── environment.yml                    # Conda environment specification
 ├── index.md                           # Documentation entry point
 ├── _config.yml                        # Site/configuration settings
-├── environment.yml                    # Conda environment specification (duplicate)
 │
 ├── data/                              # All raw and intermediate data artifacts (git-ignored)
 │   │
 │   ├── mini/                          # Baseline query outputs — subsample
-│   ├── full/                          # Baseline query outputs — full dataset
+│   │   │                              # (committed: 12 dummy CSVs, 100 rows each)
+│   │   ├── battery_power_on_geographic_summary.csv
+│   │   ├── battery_on_duration_by_cpu_family_and_generation.csv
+│   │   ├── display_devices_connection_type_resolution_durations.csv
+│   │   └── ...  (12 files total, one per benchmark query)
 │   │
-│   ├── dp_gaussian_mini/              # Gaussian DP outputs — subsample
-│   │   ├── baseline/                  # Standard Gaussian mechanism results
+│   ├── full/                          # Baseline query outputs — full dataset
+│   │   │                              # (committed: 12 dummy CSVs, 100 rows each)
+│   │   └── ...  (same filenames as mini/)
+│   │
+│   ├── dp_gaussian_mini/              # Gaussian DP outputs — subsample (git-ignored)
+│   │   ├── baseline/
+│   │   │   ├── eps_0.01/
+│   │   │   ├── eps_0.05/
+│   │   │   ├── eps_0.1/
+│   │   │   ├── eps_0.5/
+│   │   │   ├── eps_1.0/
+│   │   │   ├── eps_inf/
 │   │   │   └── gaussian_metric_summary.csv
-│   │   └── advance/                   # Optimized Gaussian mechanism results
+│   │   └── advance/
 │   │       └── gaussian_metric_summary.csv
 │   │
-│   ├── dp_gaussian_full/              # Gaussian DP outputs — full dataset
+│   ├── dp_gaussian_full/              # Gaussian DP outputs — full dataset (git-ignored)
 │   │   ├── baseline/
 │   │   └── advance/
 │   │
-│   ├── dp_laplace_mini/               # Laplace DP outputs — subsample
+│   ├── dp_laplace_mini/               # Laplace DP outputs — subsample (git-ignored)
 │   │   ├── baseline/
 │   │   └── advance/
 │   │
-│   └── dp_laplace_full/               # Laplace DP outputs — full dataset
+│   └── dp_laplace_full/               # Laplace DP outputs — full dataset (git-ignored)
 │       ├── baseline/
 │       └── advance/
 │
-├── evaluation_results/                # Evaluation summaries and visualizations (moved to root)
+├── evaluation_results/                # Evaluation summaries and visualizations
 │   ├── baseline/
 │   │   ├── evaluation_summary_mini.csv
 │   │   ├── per_query_comparison_mini.csv
@@ -108,21 +121,22 @@ intel-telementry-capstone/
 │       │   └── 06_pareto_frontier_mini.png
 │       └── figures_full/
 │           ├── 03_mechanism_comparison_full.png
-│           ├── 04_pass_rate_mini.png
-│           ├── 05_mini_vs_full_<mechansim>.png
+│           ├── 04_pass_rate_full.png
+│           ├── 05_mini_vs_full_<mechanism>.png
 │           └── 06_pareto_frontier_full.png
 │
 ├── src/                               # All Python source code
+│   │
 │   ├── export_baseline.py             # Runs benchmark queries and exports baseline CSVs
-│   ├── create_clipped_dummy_datasets.py             # run a script that will create dummy data
+│   ├── create_clipped_dummy_datasets.py  # Generates synthetic 100-row CSVs for mini/ and full/
 │   │
 │   ├── dp_mechanisms/                 # Differential privacy mechanism implementations
 │   │   ├── __init__.py
 │   │   ├── dp_config.py               # Shared configuration: epsilons, sensitivities, metrics
 │   │   ├── dp_gaussian_mechanism_baseline.py   # Standard Gaussian (ε, δ)-DP
-│   │   ├── dp_gaussian_mechanism_advance.py    # Optimized Gaussian DP with sigma caching
+│   │   ├── dp_gaussian_mechanism_advance.py    # Optimised Gaussian DP with sigma caching
 │   │   ├── dp_laplace_mechanism_baseline.py    # Standard Laplace ε-DP
-│   │   └── dp_laplace_mechanism_advance.py     # Optimized Laplace DP
+│   │   └── dp_laplace_mechanism_advance.py     # Optimised Laplace DP
 │   │
 │   └── evaluation/                    # Evaluation and visualization utilities
 │       ├── evaluate_dp_results.py     # Computes metrics across epsilons
@@ -136,23 +150,24 @@ intel-telementry-capstone/
 │
 ├── database/                          # Database creation scripts
 │   ├── database_creation_duckdb.py    # Builds full DuckDB database
-│   └── mini_database_creation_duckdb.py # Builds subsample DuckDB database
+│   └── mini_database_creation_duckdb.py  # Builds subsample DuckDB database
 │
-├── dummy/                             # Placeholder CSVs for testing/demo
+├── dummy/                             # Additional placeholder data for testing
 ├── query exploration/                 # Notes and exploratory SQL used during analysis
 ├── report/                            # Final written findings
 ├── roadmap/                           # Project timeline and development roadmap
+│
 ├── test/                              # Unit tests
 │   └── test_dp.py                     # Tests for DP mechanisms
 │
-├── assets/                            # Static assets for documentation/UI
-│   └── css/
-│       └── style.css
+└── assets/                            # Static assets for documentation/UI
+    └── css/
+        └── style.css
 ```
 
-### Files Not in Repository (Git Ignored)
+### What Is and Is Not in the Repository
 
-The following large files/folders are excluded from version control via `.gitignore`:
+The dummy baseline CSVs in `data/mini/` and `data/full/` are **committed** to the repository so the pipeline can be tested without access to the confidential Intel database. All generated DP outputs for specific epsilon and the full/subsample DuckDB files are git-ignored:
 
 ```
 data/
@@ -318,72 +333,105 @@ pytest==7.4.0
 ```mermaid
 graph TD
     A[Download Raw Data from Globus] --> B{Create DuckDB Databases}
-    
-    B --> C[Mini Database<br/>~200MB per table<br/>database_creation_duckdb.py]
-    B --> D[Full Database<br/>~50GB total<br/>min_database_creation_duckdb.py]
-    
+
+    B --> C[Mini Database<br/>~200MB per table<br/>mini_database_creation_duckdb.py]
+    B --> D[Full Database<br/>~50GB total<br/>database_creation_duckdb.py]
+
     C --> E[Build Reporting Tables<br/>22 tables<br/>00_build_reporting_tables.sql]
     D --> F[Build Reporting Tables<br/>22 tables<br/>00_build_reporting_tables.sql]
-    
+
     E --> G[Export Baseline Queries<br/>12 benchmark queries<br/>export_baseline.py]
     F --> H[Wait for Mini Evaluation]
-    
-    G --> I[Baseline Results<br/>data/baseline_mini/]
-    
-    I --> J[Apply Gaussian Mechanism<br/>eps: 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, inf<br/>dp_gaussian_mechanism.py]
-    I --> K[Apply Laplace Mechanism<br/>eps: 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, inf<br/>dp_laplace_mechanism.py]
-    
-    J --> L[DP Gaussian Results<br/>data/dp_gaussian_mini/eps_*/]
-    K --> M[DP Laplace Results<br/>data/dp_laplace_mini/eps_*/]
-    
-    L --> N[Evaluate DP Results<br/>Compute MAE, RMSE, R²<br/>evaluate_dp_results.py]
-    M --> N
-    
-    N --> O[Evaluation Metrics<br/>data/evaluation_results/]
-    
-    O --> P[Select Best Epsilon<br/>Based on accuracy threshold<br/>select_best_epsilon.py]
-    
-    P --> Q[Visualize Mini Results<br/>Privacy-Utility Tradeoff<br/>visualize_tradeoff.py]
-    
-    Q --> R[Mini Visualization<br/>Figures and Charts]
-    
+
+    G --> I[Baseline Results<br/>data/mini/]
+
+    %% CONFIG BEFORE SPLIT
+    I --> CFG[Load DP Configuration<br/>epsilons, sensitivities, metrics<br/>dp_config.py]
+
+    %% MINI — BASELINE BRANCH
+    CFG --> B_MIN[Baseline Mechanisms<br/><br/>
+        • dp_gaussian_mechanism_baseline.py<br/>
+        • dp_laplace_mechanism_baseline.py<br/><br/>
+        eps: 0.01, 0.05, 0.1, 0.5, 1.0, ∞<br/><br/>
+        Output Paths:<br/>
+        • data/dp_gaussian_mini/baseline/eps_*/<br/>
+        • data/dp_laplace_mini/baseline/eps_*/]
+
+    %% MINI — ADVANCE BRANCH
+    CFG --> A_MIN[Advance Mechanisms<br/><br/>
+        • dp_gaussian_mechanism_advance.py<br/>
+        • dp_laplace_mechanism_advance.py<br/><br/>
+        eps: 0.01, 0.05, 0.1, 0.5, 1.0, ∞<br/><br/>
+        Output Paths:<br/>
+        • data/dp_gaussian_mini/advance/eps_*/<br/>
+        • data/dp_laplace_mini/advance/eps_*/]
+
+    %% MINI EVALUATION
+    B_MIN --> N
+    A_MIN --> N
+
+    N[Evaluate Mini DP Results<br/>Compute RE, TVD, Spearman<br/>evaluate_dp_results.py] --> O
+
+    O[Mini Evaluation Metrics<br/>evaluation_results/] --> P
+
+    P[Select Best Epsilon<br/>Based on accuracy threshold<br/>select_best_epsilon.py] --> Q
+
+    Q[Visualize Mini Results<br/>Privacy–Utility Tradeoff<br/>visualize_tradeoff.py] --> R[Mini Visualization<br/>Figures and Charts]
+
     P --> S{Best Epsilon Found}
-    
     H --> S
+
+    %% FULL — BASELINE + ADVANCE, BEST EPSILON ONLY
     S --> T[Export Full Baseline<br/>12 benchmark queries<br/>export_baseline.py]
-    
-    T --> U[Baseline Results<br/>data/baseline_full/]
-    
-    U --> V[Apply Gaussian with Best ε<br/>Only best epsilon<br/>dp_gaussian_mechanism.py --epsilon BEST]
-    U --> W[Apply Laplace with Best ε<br/>Only best epsilon<br/>dp_laplace_mechanism.py --epsilon BEST]
-    
-    V --> X[DP Gaussian Results<br/>data/dp_gaussian_full/eps_BEST/]
-    W --> Y[DP Laplace Results<br/>data/dp_laplace_full/eps_BEST/]
-    
-    X --> Z[Evaluate Full Results<br/>Final accuracy metrics<br/>evaluate_dp_results.py]
-    Y --> Z
-    
-    Z --> AA[Full Evaluation Metrics<br/>data/evaluation_results/]
-    
-    AA --> AB[Visualize Full Results<br/>Final privacy-utility analysis<br/>visualize_tradeoff.py]
-    
-    AB --> AC[Full Visualization<br/>Publication-ready figures]
-    
-    R --> AD[Complete Pipeline]
+
+    T --> U[Baseline Results<br/>data/full/]
+
+    U --> CFG2[Load DP Configuration<br/>dp_config.py]
+
+    %% FULL — BASELINE BRANCH
+    CFG2 --> B_FULL[Baseline Mechanisms BEST ε<br/><br/>
+        • dp_gaussian_mechanism_baseline.py<br/>
+        • dp_laplace_mechanism_baseline.py<br/><br/>
+        Apply with best epsilon<br/>e.g., via --epsilon BEST<br/><br/>
+        Output Paths:<br/>
+        • data/dp_gaussian_full/baseline/<br/>
+        • data/dp_laplace_full/baseline/]
+
+    %% FULL — ADVANCE BRANCH
+    CFG2 --> A_FULL[Advance Mechanisms BEST ε<br/><br/>
+        • dp_gaussian_mechanism_advance.py<br/>
+        • dp_laplace_mechanism_advance.py<br/><br/>
+        Apply with best epsilon<br/>e.g., via --epsilon BEST<br/><br/>
+        Output Paths:<br/>
+        • data/dp_gaussian_full/advance/<br/>
+        • data/dp_laplace_full/advance/]
+
+    %% FULL EVALUATION
+    B_FULL --> Z
+    A_FULL --> Z
+
+    Z[Evaluate Full Results<br/>Final accuracy metrics<br/>evaluate_dp_results.py] --> AA
+
+    AA[Full Evaluation Metrics<br/>evaluation_results/] --> AB
+
+    AB[Visualize Full Results<br/>Final privacy–utility analysis<br/>visualize_tradeoff.py] --> AC[Full Visualization<br/>Publication-ready figures]
+
+    R --> AD[Complete analysis]
     AC --> AD
-    
+
+    %% COLORS
     style A fill:#e1f5ff
     style C fill:#fff3cd
     style D fill:#fff3cd
     style I fill:#d4edda
-    style L fill:#f8d7da
-    style M fill:#f8d7da
+    style CFG fill:#e2e3ff
+    style B_MIN fill:#f8d7da
+    style A_MIN fill:#f8d7da
     style O fill:#d1ecf1
     style P fill:#d1ecf1
     style R fill:#d4edda
     style U fill:#d4edda
-    style X fill:#f8d7da
-    style Y fill:#f8d7da
+    style CFG2 fill:#e2e3ff
     style AC fill:#d4edda
     style AD fill:#c3e6cb
 ```
@@ -399,7 +447,7 @@ The complete written analysis — including findings, design decisions, and inte
 
 ---
 
-### `src/generate_dummy_data.py`
+### `src/create_clipped_dummy_datasets.py`
 
 Generates synthetic 100-row CSV files that exactly mirror the schema of every real benchmark query output. It writes one set of files to `data/mini/` and another to `data/full/`, so the entire DP pipeline can be exercised without access to the confidential Intel database.
 
@@ -409,7 +457,7 @@ Run this once after cloning if you do not have access to Globus:
 
 ```bash
 # From repo root
-python src/generate_dummy_data.py
+python src/create_clipped_dummy_datasets.py
 # Writes: data/mini/.csv  (12 files, 100 rows each)
 #         data/full/.csv  (12 files, 100 rows each)
 ```
@@ -537,7 +585,7 @@ The repository ships with pre-generated 100-row dummy CSVs in `data/mini/` and `
 ```bash
 # From repo root — dummy data is already committed, nothing to generate.
 # If you need to regenerate it (e.g. after deleting the files):
-python src/generate_dummy_data.py
+python src/create_clipped_dummy_datasets.py
 # Writes: data/mini/*.csv and data/full/*.csv  (12 files × 2 folders, 100 rows each)
 ```
 
@@ -600,14 +648,18 @@ Run all four mechanism files against the subsample. Both `baseline` and `advance
 ```bash
 cd src/dp_mechanisms
 
+# Run dp_config.py first — validates all sensitivity values, clipping caps,
+# and epsilon grid, and confirms output directories can be created
+python dp_config.py
+
 python dp_gaussian_mechanism_baseline.py --database mini && \
 python dp_laplace_mechanism_baseline.py  --database mini && \
 python dp_gaussian_mechanism_advance.py  --database mini && \
 python dp_laplace_mechanism_advance.py   --database mini
 
 # Output per mechanism/variant:
-#   12 queries × 6 epsilon values = 72 noisy CSV files
-#   1 metric summary CSV  (e.g. gaussian_metric_summary.csv)
+#   12 queries × 6 epsilon values = 72 rows per CSV files
+#   all metric summary CSV  (e.g. gaussian_metric_summary.csv/laplace_metric_summary)
 # Time: ~2–5 minutes per script
 ```
 
@@ -656,6 +708,8 @@ python export_baseline.py   # update DATABASE_PATH inside the file to data/data.
 
 # Run mechanisms with the best epsilon selected in Phase 7
 cd src/dp_mechanisms
+
+python dp_config.py
 
 python dp_gaussian_mechanism_baseline.py --database full --epsilon 1.0 && \
 python dp_gaussian_mechanism_advance.py  --database full --epsilon 0.5 && \
@@ -753,9 +807,9 @@ Metrics are aligned with the shared evaluation framework used by both groups:
 
 | Metric | Queries | What It Measures | Pass Threshold |
 |--------|---------|-----------------|----------------|
-| **RE** (Median Relative Error) | Q1, Q2, Q5, Q7, Q9, Q11 | How much does the noisy aggregate deviate from true? | RE ≤ 0.25 |
-| **TVD** (Total Variation Distance) | Q4, Q6, Q8, Q10 | How distorted is the percentage/distribution? | TVD ≤ 0.15 |
-| **SPEARMAN** (Spearman ρ) | Q3, Q12 | Is the ranking preserved? | ρ ≥ 0.5 |
+| **RE** (Median Relative Error) | Q1, Q2, Q4, Q5, Q9 | How much does the noisy aggregate deviate from true? | RE ≤ 0.25 |
+| **TVD** (Total Variation Distance) | Q7, Q8, Q10, Q11 | How distorted is the percentage/distribution? | TVD ≤ 0.15 |
+| **SPEARMAN** (Spearman ρ) | Q3, Q6, Q12 | Is the ranking preserved? | ρ ≥ 0.5 |
 
 ### Clipping / Sensitivity Configuration
 
@@ -825,17 +879,17 @@ Best-epsilon vertical marker lines are overlaid on all curves when `best_epsilon
 
 ### Metrics Detail
 
-**RE — Q1, Q2, Q5, Q7, Q9, Q11:**
+**RE — Q1, Q2, Q4, Q5, Q9:**
 ```
 median_re  : median(|true - dp| / |true|)  — lower is better  [0, ∞)
 ```
 
-**TVD — Q4, Q6, Q8, Q10:**
+**TVD — Q7, Q8, Q10, Q11:**
 ```
 tvd / mean_tvd  : 0.5 * sum|p_true - p_dp|  — lower is better  [0, 1]
 ```
 
-**SPEARMAN — Q3, Q12:**
+**SPEARMAN — Q3, Q6, Q12:**
 ```
 spearman_rho  : Spearman rank correlation  — higher is better  [-1, 1]
 ```
@@ -853,10 +907,12 @@ The fastest way to verify the pipeline works end-to-end. The dummy CSVs in `data
 conda activate dp-pipeline
 
 # Optional: regenerate dummy data if needed
-python src/generate_dummy_data.py
+python src/create_clipped_dummy_datasets.py
 
 # ── Run mechanisms on mini dummy data ───────────────────────────────────────
 cd src/dp_mechanisms
+
+python dp_config.py
 
 python dp_gaussian_mechanism_baseline.py --database mini && \
 python dp_laplace_mechanism_baseline.py  --database mini && \
@@ -894,6 +950,8 @@ python export_baseline.py
 # ── Step 2: run all four mechanism files on mini ────────────────────────────
 cd dp_mechanisms
 
+python dp_config.py
+
 python dp_gaussian_mechanism_baseline.py --database mini && \
 python dp_laplace_mechanism_baseline.py  --database mini && \
 python dp_gaussian_mechanism_advance.py  --database mini && \
@@ -915,6 +973,8 @@ python select_best_epsilon.py --database mini --variant advance
 
 # ── Step 5: production run on full database (best ε from Step 4) ────────────
 cd ../dp_mechanisms
+
+python dp_config.py
 
 python dp_gaussian_mechanism_baseline.py --database full --epsilon 1.0 && \
 python dp_gaussian_mechanism_advance.py  --database full --epsilon 0.5 && \
@@ -975,8 +1035,8 @@ ls evaluation_results/advance/figures_mini/
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | `ModuleNotFoundError: duckdb` | Environment not activated | Run `conda activate dp-pipeline` |
-| `FileNotFoundError: database_tables` | Data not downloaded | Use dummy data (`python src/generate_dummy_data.py`) or download from Globus |
-| `FileNotFoundError` in mechanism | Baseline CSVs missing | Confirm `data/mini/*.csv` exists; run `generate_dummy_data.py` if not |
+| `FileNotFoundError: database_tables` | Data not downloaded | Use dummy data (`python src/create_clipped_dummy_datasets.py`) or download from Globus |
+| `FileNotFoundError` in mechanism | Baseline CSVs missing | Confirm `data/mini/*.csv` exists; run `create_clipped_dummy_datasets.py` if not |
 | `__tmp_fgnd_apps_date` load fails | Malformed CSV rows | Already fixed: `ignore_errors=true` in loader |
 | `Column 'dt' not found` | Column is named `dt_utc` | Already fixed in SQL files |
 | Out of memory | Full database too large | Use subsample first: `mini_database_creation_duckdb.py` |
@@ -992,20 +1052,3 @@ ls evaluation_results/advance/figures_mini/
 3. Open a GitHub issue with your error message and the steps you ran
 
 ---
-
-## Contributing
-
-```bash
-# Fork → clone → branch
-git checkout -b feature/my-feature
-
-# Make changes, then test
-python -m pytest tests/
-
-# Commit and push
-git commit -m "Add: description of change"
-git push origin feature/my-feature
-# → open pull request
-```
-
-Code style: PEP 8 for Python, lowercase keywords for SQL, comments explain *why* not *what*.
