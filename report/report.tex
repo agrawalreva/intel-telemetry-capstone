@@ -676,4 +676,49 @@ We assume \emph{user-level} (device-level) differential privacy: the adversary c
 
 Deployment would involve: (1) exporting baseline query results from the current database; (2) running the Laplace and Gaussian mechanisms at the chosen $\epsilon$ (e.g., 1.0) with a fixed seed for reproducibility; (3) storing the noisy outputs in a secure but accessible location for analysts; (4) documenting the composed $\epsilon_{\text{total}}$ and $\delta_{\text{total}}$ for transparency. Re-running the pipeline on a schedule would consume the same budget each run unless the data is considered a new dataset under a separate budget.
 
+\section{Conclusion}
+\label{sec:conclusion}
+
+\subsection{Summary}
+We designed and implemented a differentially private query-release system for Intel telemetry. The system answers 12 analytical queries by adding calibrated Laplace or Analytic Gaussian noise to query outputs, after bounding each device's contribution via clipping. Two implementation variants (baseline and advance) are available; they are mathematically identical, with the advance variant using precomputed scale caching for faster runs. Global sensitivity is derived from clipping constants and query structure ($\Delta = C/k_{\min}$ for averages, $\Delta = C$ for sums, $\Delta = 1$ for counts and conservative percentage columns). We evaluated both mechanisms on a mini (subsample) and full database across a range of $\epsilon$ values. All reported results and figures use the \textbf{baseline} variant. At strong privacy ($\epsilon = 0.01$), Laplace consistently matched or outperformed Gaussian on median relative error, total variation distance, and Spearman rank correlation. Best-epsilon selection on mini recommended $\epsilon = 1.0$ for the baseline; at $\epsilon = 1.0$, most queries pass their utility thresholds on the full database. The \textbf{advance} variant typically attains similar utility at $\epsilon = 0.5$, offering a stronger privacy guarantee for deployment. The pipeline is reproducible (fixed seed, versioned scripts) and provides an auditable $(\epsilon,\delta)$ guarantee under sequential composition.
+
+\subsection{Impact}
+The work demonstrates that query release under differential privacy is tractable at scale for telemetry analytics: sensitivity is bounded by design, mechanisms are standard and well understood, and the privacy-utility tradeoff can be tuned via $\epsilon$. It provides a rigorous, deployable alternative to releasing raw or lightly anonymized aggregates and avoids the pitfalls of synthetic data generation for this setting. The repository (export baseline, DP mechanisms, evaluation, and best-epsilon selection) can serve as a template for other telemetry or event-log systems where user-level DP is required.
+
+\subsection{Future Work}
+Future work includes: extension to the remaining benchmark queries (e.g., 10 and 11) in the evaluation pipeline; exploration of advanced composition and RDP accounting to tighten the composed guarantee; comparison with other mechanisms (e.g., the exponential mechanism for rankings); explicit Report Noisy Max for Q6 in the mechanism code and evaluation; and generation of privacy-utility curve figures from the per-query comparison CSVs for publication.
+
+\subsection{Acknowledgements}
+We thank our project advisor Yu-Xiang Wang and Intel for access to the telemetry data and for the query set that motivated our specialized schema.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% References
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\makereference
+\bibliography{reference}
+\bibliographystyle{style/dsc180bibstyle}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Appendix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+\makeappendix
+
+\subsection{Appendix A: Contributions}
+Contributions are divided equally across the three team members, spanning code (pipeline, mechanisms, evaluation, visualization), report (writing and structure), and website and documentation.
+
+\begin{itemize}
+    \item \textbf{Reva Agrawal}
+    \item \textbf{Dhruv Patel}
+    \item \textbf{Jordan Lambino}
+\end{itemize}
+
+\subsection{Appendix B: Project Proposal}
+\url{https://drive.google.com/file/d/1-uWLW_FLOvIJ-335J9SwYmFleC-lXZaR/view?usp=sharing}
+
+\subsection{Appendix C: Additional Materials}
+Schema Exploration: \url{https://docs.google.com/document/d/1XfkwK9zN7aP9EJ5fI-bRJ5eS9TzQZW_oRQ9NwRilQeo/edit?usp=sharing}
+
 \end{document}
