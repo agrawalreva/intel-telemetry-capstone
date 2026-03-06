@@ -138,4 +138,391 @@ Privacy-preserving query release over telemetry supports usage metrics and featu
 
 Differential privacy was introduced in \cite{dwork2006calibrating} and is treated in depth in \cite{dwork2014promise}, which covers the Laplace and Gaussian mechanisms, global sensitivity, and composition. The Analytic Gaussian mechanism of \cite{balle2018improving} improves noise calibration for $(\epsilon,\delta)$-DP and is well suited to query release when many numeric outputs are perturbed. Query answering under DP in database and analytics settings requires bounding sensitivity (typically via clipping or projection) and allocating privacy budget across queries. In this work all guarantees follow from standard mechanisms, global sensitivity derived from clipping and query structure, and explicit sequential composition.
 
+\section{Methods}
+\label{sec:methods}
+
+This section describes how we obtain the data, how the pipeline is structured, the global privacy model (unit of privacy, sensitivity, mechanisms, composition), the choice and meaning of the three evaluation metrics (median relative error, total variation distance, and Spearman rank correlation) and their assignment to queries, the allocation of the privacy budget across queries, and the use of multiple epsilon values to trace the privacy-utility curve. We then give the full mathematical definition, sensitivity, mechanism, and evaluation metric for each of the 12 queries (Sections~\ref{sec:q1} to \ref{sec:q12}).
+
+\subsection{Data Access and Reporting Layer}
+\label{sec:data_access}
+
+Raw Intel telemetry is stored in 23 tables across two schemas. We build two DuckDB databases: a subsample with capped table sizes for development, and a full database for production. A build step (SQL script \texttt{00\_build\_reporting\_tables.sql}) constructs 22 reporting tables that resolve joins and normalise column names. The 12 benchmark queries are executed against this reporting layer; their results are exported and serve as the non-private baseline. Per-query clipping is applied in SQL so that each device's contribution is bounded before aggregation; global sensitivity is derived from these clipping constants and the query structure only.
+
+\subsection{Project and Pipeline Structure}
+\label{sec:project_structure}
+
+The pipeline proceeds in six stages. (1) \textbf{Data and reporting layer:} raw telemetry is loaded into DuckDB; a build step produces 22 reporting tables under a single schema. (2) \textbf{Baseline export:} the 12 benchmark queries are run with per-GUID clipping applied in SQL; results are the non-private baseline. (3) \textbf{Differential privacy release:} we run the Laplace and Analytic Gaussian mechanisms at each $\epsilon$ in a fixed grid, with one noise draw per output and a fixed random seed for reproducibility; two implementation variants (baseline and advance) are available (Section~\ref{sec:mechanism_variants}). (4) \textbf{Evaluation:} per-query statistics (worst/best value, pass rate) and Laplace vs Gaussian comparison are computed across $\epsilon$. (5) \textbf{Best-epsilon selection:} a utility-preservation score (relative to baseline at $\epsilon = \infty$) selects a recommended $\epsilon$ per mechanism; Tier 1 is the smallest $\epsilon$ where mean utility preserved reaches 80\%, with a Tier 2 fallback to the $\epsilon$ with highest score if none reach that target. (6) \textbf{Visualization:} privacy-utility curves, mechanism comparison, pass rate, best-epsilon summary, and Pareto frontier are produced from the evaluation outputs. This structure keeps sensitivity at the query level, mechanisms in dedicated modules, and evaluation independent of the release step.
+
+\subsection{Mechanism Variants: Baseline and Advance}
+\label{sec:mechanism_variants}
+
+The pipeline implements each mechanism (Laplace and Analytic Gaussian) in two variants: \textbf{baseline} and \textbf{advance}. They are \emph{mathematically identical}: for a given query, $\epsilon$, and sensitivity, both produce the same noise distribution and the same privacy guarantee. The difference is how the noise scale is computed at run time.
+
+In the \textbf{baseline} variant, the noise scale is recomputed from scratch for every (query, column, $\epsilon$) triple. For Laplace, the scale is $b = \Delta_1 f / \epsilon$ (closed form). For the Analytic Gaussian, $\sigma$ is found by binary search so that the exact $(\epsilon,\delta)$-DP condition holds \cite{balle2018improving}; that search is run separately for each combination of sensitivity and $\epsilon$ encountered in the loop over queries and columns. This is straightforward and easy to verify, but when many queries share the same sensitivity (or a small set of sensitivities), the same binary search is repeated many times.
+
+In the \textbf{advance} variant, a \emph{scale cache} is built once before the main loop: for each unique pair (sensitivity, $\epsilon$), the Laplace scale $b$ or the Gaussian $\sigma$ is computed once and stored. During the release step, the implementation looks up the precomputed scale instead of recomputing it. Because the number of distinct (sensitivity, $\epsilon$) pairs is much smaller than the number of (query, column, $\epsilon$) triples, the advance variant typically runs about 2--4$\times$ faster than the baseline with identical numerical output. It is therefore preferred for production or for running the full grid of $\epsilon$ values on large data.
+
+We report main results and figures for the \textbf{baseline} variant at $\epsilon = 1.0$ (Section~\ref{sec:results}). The \textbf{advance} variant often attains similar utility at a lower $\epsilon$ (e.g.\ 0.5) on the same data, so it can offer a stronger privacy guarantee when used in deployment; that comparison is discussed in Section~\ref{sec:disc_interpretation}.
+
+\subsection{Global Privacy Model}
+\label{sec:global_model}
+
+\textbf{Unit of privacy.} We use \emph{user-level} differential privacy: the unit of privacy is one GUID. Neighboring datasets $D$ and $D'$ differ in all rows associated with exactly one GUID (i.e., adding or removing one user's entire activity).
+
+\textbf{Contribution bounding.} Before aggregation we apply per-GUID contribution clipping so that the influence of any single GUID on the query output is bounded. Clipping is a deterministic, data-independent pre-processing step; global sensitivity is computed with respect to the clipped query function.
+
+\textbf{Sensitivity.} For each query we derive the global sensitivity $\Delta f$ (or $\Delta_1 f$, $\Delta_2 f$ for vector outputs) from the clipping bounds and the query structure.
+
+\textbf{Mechanisms.} We run \emph{both} the Laplace and the Analytic Gaussian mechanism on every query so that we can compare their privacy-utility tradeoff in the evaluation. The per-query ``assignment'' in the table and subsections indicates which mechanism is \emph{preferred} for that query type (because it typically yields better utility for the same privacy budget), not which one we run. Laplace is preferred for count queries, histograms, Report Noisy Max, and low-dimensional aggregates. The Analytic Gaussian is preferred for high-dimensional or multi-column outputs (Queries 7, 8, 9) because its analytic calibration yields a smaller $\sigma$ than the classical bound for the same $(\epsilon,\delta)$, improving utility when the budget is spread over many dimensions. Concretely:
+\begin{itemize}
+    \item \textbf{Laplace mechanism} (pure $\epsilon$-DP): release $f(D) + \text{Lap}(0, b)$ with $b = \Delta_1 f / \epsilon$.
+    \item \textbf{Analytic Gaussian mechanism} ($(\epsilon,\delta)$-DP): release $f(D) + \mathcal{N}(0, \sigma^2)$ where $\sigma$ is calibrated via \cite{balle2018improving}. We fix $\delta = 10^{-6}$ per query.
+\end{itemize}
+Preferred assignment: Laplace for queries 1 to 6 and 10 to 12; Analytic Gaussian for queries 7, 8, and 9.
+
+\textbf{Composition.} The 12 queries are answered under \emph{sequential composition}: if query $i$ uses $(\epsilon_i, \delta_i)$-DP, the total guarantee is $(\sum_{i=1}^{12} \epsilon_i,\, \sum_{i=1}^{12} \delta_i)$-DP. We allocate a total budget $\epsilon_{\text{total}}$ so that $\sum_{i=1}^{12} \epsilon_i \leq \epsilon_{\text{total}}$. When a single query releases multiple numeric outputs, we either split that query's $\epsilon_i$ across outputs or treat the output as a vector and apply the vector-valued mechanism once.
+
+\textbf{Post-processing.} Deterministic post-processing (clamping to non-negative, re-normalising percentages to sum to 100\%) does not consume privacy budget and preserves $(\epsilon,\delta)$-DP.
+
+\subsection{Evaluation Metrics}
+\label{sec:eval_metrics_methods}
+
+Utility is evaluated by comparing the true (non-private) query output with the DP output. We assign each query exactly one of three metrics, aligned with the shared evaluation framework: \textbf{median relative error}, \textbf{total variation distance}, and \textbf{Spearman rank correlation}. The metric for each query is chosen to match the analytical story (aggregate deviation, distribution shape, or ranking). Table~\ref{tab:metrics_summary} summarises the three metrics and their assignment to queries.
+
+\begin{table}[htbp]
+\centering
+\caption{Evaluation metrics: name, what it measures, pass threshold, and query assignment.}
+\label{tab:metrics_summary}
+\begin{tabular}{@{}clp{3.6cm}cp{2.4cm}@{}}
+\toprule
+\textbf{Metric} & \textbf{Name} & \textbf{What it measures} & \textbf{Pass} & \textbf{Queries} \\
+\midrule
+Median rel.\ err. & Median relative error & Noisy aggregate deviation from true & $\leq 0.25$ & Q1, Q2, Q4, Q5, Q9 \\
+TVD & Total variation distance & Distortion of percentage/distribution & $\leq 0.15$ & Q7, Q8, Q10, Q11 \\
+Spearman $\rho$ & Spearman rank correlation & Ranking preserved & $\rho \geq 0.5$ & Q3, Q6, Q12 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Median relative error.} Queries Q1, Q2, Q4, Q5, and Q9: we compute the median of $|x_i^{\text{true}} - x_i^{\text{DP}}| / |x_i^{\text{true}}|$ over groups (or the key column). Lower is better; pass threshold median relative error $\leq 0.25$.
+
+\textbf{Total variation distance.} Queries Q7, Q8, Q10, and Q11: we normalise the true and DP vectors to probability distributions and compute
+\[
+\text{TVD} = \frac{1}{2} \sum_i |p_{\text{true},i} - p_{\text{DP},i}|.
+\]
+Lower is better; 0 means identical distributions. For Q8 (persona-level category distributions) we report the mean total variation distance across personas. Pass threshold total variation distance $\leq 0.15$.
+
+\textbf{Spearman rank correlation.} Queries Q3, Q6, and Q12: we compute the Spearman rank correlation between the true and DP orderings (e.g., display configs by duration, browser winner per country, users by power). Higher is better; pass threshold $\rho \geq 0.5$.
+
+Table~\ref{tab:query_summary} gives an overview of all 12 queries, their research question, assigned metric, mechanism, and global sensitivity $\Delta$, so that the reader can locate the full derivation in the corresponding subsection.
+
+\begin{table}[H]
+\centering
+\caption{Overview of the 12 benchmark queries: research question, evaluation metric, mechanism, and global sensitivity.}
+\label{tab:query_summary}
+\small
+\begin{tabular}{@{}clp{3.4cm}cp{2.2cm}@{}}
+\toprule
+\textbf{Q} & \textbf{Metric} & \textbf{Research question} & \textbf{Mechanism} & \textbf{$\Delta$} \\
+\midrule
+1 & Median rel.\ err. & Battery duration by country (abnormal?) & Laplace & $C/k_{\min}$ \\
+2 & Median rel.\ err. & Battery duration by CPU (abnormal?) & Laplace & $C/k_{\min}$ \\
+3 & Spearman $\rho$ & Display configs ranked by AC duration & Laplace & $C/k_{\min}$ \\
+4 & Median rel.\ err. & Vendor percentage distribution & Laplace & 1.0 \\
+5 & Median rel.\ err. & MODS blockers by OS (abnormal?) & Laplace & $C/k_{\min}$ \\
+6 & Spearman $\rho$ & Most popular browser per country & Report Noisy Max & 1 \\
+7 & TVD & MODS sleep time by CPU (abnormal?) & Lap.\ or Gauss. & $C/k_{\min}$ \\
+8 & TVD & Persona web category distribution (28 dim.) & Lap.\ or Gauss. & $\epsilon_8/28$ or $\Delta_2$ \\
+9 & Median rel.\ err. & Package power by country (abnormal?) & Lap.\ or Gauss. & $C/k_{\min}$ \\
+10 & TVD & Browser market share (percent) & Laplace & 1.0 \\
+11 & TVD & RAM utilisation histogram & Laplace & $C/k_{\min}$ \\
+12 & Spearman $\rho$ & Users ranked by power consumption & Laplace & $C$ (sum) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Query 1: Battery Power On Geographic Summary}
+\label{sec:q1}
+
+\textbf{Source tables:} reporting.system\_batt\_dc\_events (guid, num\_power\_ons, duration\_mins); reporting.system\_sysinfo\_unique\_normalized (guid, countryname\_normalized).
+
+\textbf{Research question.} Which countries have abnormally long battery discharge durations?
+
+\textbf{Non-private mathematical expression.} Let $D$ be the dataset of per-GUID battery discharge events. For each country $c$, define the clipped per-GUID average of duration with $C = 60$ minutes:
+\[
+x_g^c = \text{clip}(\text{avg}_{\text{session}}(\text{duration\_mins}_g), C), \qquad
+f(D)_c = \frac{1}{n_c} \sum_{g \in c} x_g^c, \quad n_c = |\{g : \text{country}(g) = c\}|,
+\]
+restricted to groups with $n_c \geq k_{\min} = 100$. Output: a vector of (country, avg\_duration) pairs, ordered by avg\_duration.
+
+\textbf{Contribution bounding.} For each GUID: clip total \texttt{num\_power\_ons} to $C_1 = 10$ and total \texttt{duration\_mins} to $C_2 = 60$. Averages use $k_{\min} = 100$.
+
+\textbf{Sensitivity.} Adding or removing one GUID changes $f(D)_c$ by at most $C/n_c$. Worst case over neighboring datasets is $n_c = k_{\min}$, so \emph{global} sensitivity is $\Delta = C/k_{\min} = 60/100 = 0.60$ (we use only this; no data-dependent reduction). Per country we release one scalar (avg\_duration); Laplace scale $b = \Delta/\epsilon_1$.
+
+\textbf{Mechanism:} Laplace: add $\text{Lap}(0, \Delta/\epsilon_1)$ to avg\_duration per country. Single draw per output. Epsilon: $\epsilon_1$ (medium).
+
+\textbf{Evaluation metric:} Median relative error (on avg\_duration).
+
+\textbf{Post-processing:} Clamp $\geq 0$; ranking and z-scores are deterministic functions of the noisy output.
+
+\subsection{Query 2: Battery On Duration by CPU Family and Generation}
+\label{sec:q2}
+
+\textbf{Source tables:} reporting.system\_cpu\_metadata (guid, marketcodename, cpugen); reporting.system\_batt\_dc\_events (guid, duration\_mins).
+
+\textbf{Research question.} Which CPU family-generation combinations have abnormal battery duration?
+
+\textbf{Non-private mathematical expression.} For each group $c = (\text{marketcodename}, \text{cpugen})$ with $C = 60$:
+\[
+x_g^c = \text{clip}(\text{avg}_{\text{event}}(\text{duration\_mins}_g), C), \qquad
+f(D)_c = \frac{1}{n_c} \sum_{g \in c} x_g^c, \quad n_c \geq k_{\min} = 100.
+\]
+Output ordered by avg\_duration.
+
+\textbf{Contribution bounding.} Clip each GUID's total \texttt{duration\_mins} to $C = 60$.
+
+\textbf{Sensitivity.} One GUID changes the group average by at most $C/n_c$; worst case $n_c = k_{\min}$ gives $\Delta = C/k_{\min} = 60/100 = 0.60$. Laplace scale $b = \Delta/\epsilon_2$.
+
+\textbf{Mechanism:} Laplace: add $\text{Lap}(0, \Delta/\epsilon_2)$ to avg\_duration per group. Single draw. Epsilon: $\epsilon_2$ (medium).
+
+\textbf{Evaluation metric:} Median relative error (on avg\_duration).
+
+\textbf{Post-processing:} Clamp $\geq 0$.
+
+\subsection{Query 3: Display Devices Connection Type Resolution Durations AC/DC}
+\label{sec:q3}
+
+\textbf{Source tables:} reporting.system\_display\_devices (guid, connection\_type, resolution\_height, resolution\_width, duration\_ac, duration\_dc).
+
+\textbf{Research question.} Which display connection-type and resolution combinations have the longest AC usage time?
+
+\textbf{Non-private mathematical expression.} For each group $c = (\text{connection\_type}, \text{resolution})$ with $C = 600$ seconds (10 minutes):
+\[
+x_g^c = \text{clip}(\text{avg}_{\text{session}}(\text{duration\_ac}_g), C), \qquad
+f(D)_c = \frac{1}{n_c} \sum_{g \in c} x_g^c, \quad n_c \geq k_{\min} = 50.
+\]
+Output ranked by $f(D)_c$ descending.
+
+\textbf{Contribution bounding.} Clip per-GUID \texttt{duration\_ac} and \texttt{duration\_dc} to $C = 600$ seconds.
+
+\textbf{Sensitivity.} One GUID changes the group average by at most $C/n_c$; worst case $n_c = k_{\min}$ gives $\Delta = C/k_{\min} = 600/50 = 12.0$ seconds. Laplace scale $b = \Delta/\epsilon_3$ for the released average\_duration\_on\_ac.
+
+\textbf{Mechanism:} Laplace: add $\text{Lap}(0, \Delta/\epsilon_3)$ to average\_duration\_on\_ac per group. Single draw. Epsilon: $\epsilon_3$ (smaller).
+
+\textbf{Evaluation metric:} Spearman $\rho$ (rank correlation on average\_duration\_on\_ac).
+
+\textbf{Post-processing:} Clamp $\geq 0$; ranking is deterministic post-processing.
+
+\subsection{Query 4: Display Devices Vendors Percentage}
+\label{sec:q4}
+
+\textbf{Source tables:} reporting.system\_display\_devices (guid, vendor\_name).
+
+\textbf{Research question.} What fraction of systems use each display vendor?
+
+\textbf{Non-private mathematical expression.} Let $N = \sum_v n_v$ be the total number of distinct GUIDs. For each vendor $v$:
+\[
+n_v = |\{g : \text{vendor}(g) = v\}|, \qquad f(D)_v = (n_v / N) \times 100 \text{ (percentage of systems)}.
+\]
+Output: vector (vendor, percentage) summing to 100\%.
+
+\textbf{Contribution bounding.} One GUID contributes to exactly one vendor; adding/removing one GUID changes $n_v$ by at most 1 and $N$ by 1. Change in percentage is bounded; we use the conservative $\Delta = 1.0$ (percentage point) for the released statistic.
+
+\textbf{Sensitivity.} $\Delta = 1.0$. Laplace scale $b = \Delta/\epsilon_4$ per vendor percentage.
+
+\textbf{Mechanism:} Laplace: add $\text{Lap}(0, \Delta/\epsilon_4)$ to each vendor's percentage (or to counts then form percentages as post-processing). Single draw. Epsilon: $\epsilon_4$ (smaller).
+
+\textbf{Evaluation metric:} Median relative error (on percentage\_of\_systems).
+
+\textbf{Post-processing:} Clamp $\geq 0$; re-normalise to sum to 100\% (deterministic).
+
+\subsection{Query 5: MODS Blockers by OS Name and Codename}
+\label{sec:q5}
+
+\textbf{Source tables:} reporting.system\_mods\_top\_blocker\_hist (guid, dt);
+reporting.system\_os\_codename\_history (guid, min\_ts, max\_ts, os\_name, os\_codename).
+Join on GUID and time windows.
+
+\textbf{Research question.} Which OS versions generate the most MODS blocker events per system?
+
+\textbf{Non-private mathematical expression.} For each group $c = (\text{os\_name}, \text{os\_codename})$ with $C = 50$:
+\[
+e_g^c = \text{clip}(\text{COUNT}(\text{events for } g \in c), C),
+\]
+\[
+f(D)_c = \frac{1}{n_c} \sum_{g \in c} e_g^c \text{ (avg.\ clipped entries per system)}, \quad n_c \geq k_{\min} = 10.
+\]
+
+\textbf{Contribution bounding.} Clip each GUID's entry count to $C = 50$ per group.
+
+\textbf{Sensitivity.} One GUID changes the group average by at most $C/n_c$; worst case $n_c = k_{\min}$ gives $\Delta = C/k_{\min} = 50/10 = 5.0$. Laplace scale $b = \Delta/\epsilon_5$.
+
+\textbf{Mechanism:} Laplace: add $\text{Lap}(0, \Delta/\epsilon_5)$ to entries\_per\_system per group. Single draw. Epsilon: $\epsilon_5$ (smaller).
+
+\textbf{Evaluation metric:} Median relative error (on entries\_per\_system).
+
+\textbf{Post-processing:} Clamp $\geq 0$.
+
+\subsection{Query 6: Most Popular Browser in Each Country by System Count}
+\label{sec:q6}
+
+\textbf{Source tables:} reporting.system\_sysinfo\_unique\_normalized (guid, countryname\_normalized); reporting.system\_web\_cat\_usage (guid, browser).
+
+\textbf{Research question.} Which browser is most used in each country?
+
+\textbf{Non-private mathematical expression.} For each country $c$ and browser $b$:
+\[
+\text{count}(c,b) = |\{g : \text{country}(g)=c,\, \text{browser}(g)=b\}|, \qquad f(D)_c = \arg\max_b \text{count}(c,b).
+\]
+Output: one (country, browser) pair per country.
+
+\textbf{Sensitivity.} Each $\text{count}(c,b)$ has global sensitivity $\Delta = 1$ (one GUID changes one count by 1).
+
+\textbf{Mechanism:} \textbf{Report Noisy Max.} Per country: add $\text{Lap}(0, 1/\epsilon_6)$ to each browser count; release $\arg\max_b (\text{count}(c,b) + \text{noise}_b)$. This satisfies $\epsilon_6$-DP per country. We allocate $\epsilon_6$ per country (or account for composition across countries in the global budget).
+
+\textbf{Evaluation metric:} Spearman $\rho$ (rank correlation on winner ordering per country).
+
+\textbf{Post-processing:} None beyond argmax.
+
+\subsection{Query 7: On/Off MODS Sleep Summary by CPU Market Codename and Generation}
+\label{sec:q7}
+
+\textbf{Source tables:} reporting.system\_on\_off\_suspend\_time\_day (guid, on\_time, off\_time, mods\_time, sleep\_time); reporting.system\_cpu\_metadata (guid, marketcodename, cpugen).
+
+\textbf{Research question.} Which CPU families spend an abnormally high fraction of time in Modern Standby (MODS)?
+
+\textbf{Non-private mathematical expression.} For each group $c = (\text{marketcodename}, \text{cpugen})$ with $C = 720$ minutes per day (12 hours):
+\[
+x_g^c = \text{clip}(\text{avg}_{\text{day}}(\text{mods\_time}_g), C), \qquad
+f(D)_c = \frac{1}{n_c} \sum_{g \in c} x_g^c \text{ (avg\_modern\_sleep\_time)}, \quad n_c \geq k_{\min} = 100.
+\]
+Output includes multiple time columns; the evaluation metric uses only avg\_modern\_sleep\_time.
+
+\textbf{Contribution bounding.} Clip per-GUID total time per category to $C = 720$ minutes per day. For the key column (avg\_modern\_sleep\_time): $\Delta = C/k_{\min} = 720/100 = 7.2$ minutes. We add noise to \emph{every} released numeric column (or treat the release as one vector with joint L1/L2 sensitivity and one mechanism call).
+
+\textbf{Sensitivity.} $\Delta = 7.2$ for the average; if releasing multiple columns, joint sensitivity is used (e.g., L2 over the vector of sensitivities).
+
+\textbf{Mechanism:} Laplace or Analytic Gaussian: add noise with scale $\Delta/\epsilon_7$ (Laplace) or $\sigma(\Delta,\epsilon_7,\delta)$ (Gaussian) to the released statistics. Single draw. Epsilon: $\epsilon_7$ (medium).
+
+\textbf{Evaluation metric:} Total variation distance (mean over sleep percentage columns).
+
+\textbf{Post-processing:} Clamp $\geq 0$; re-normalise percentages if computed.
+
+\subsection{Query 8: Persona Web Category Usage Analysis}
+\label{sec:q8}
+
+\textbf{Source tables:} reporting.system\_sysinfo\_unique\_normalized (guid, persona);
+reporting.system\_web\_cat\_pivot\_duration (guid, category duration columns).
+
+\textbf{Research question.} How does web browsing time distribute across 28 content categories for each user persona?
+
+\textbf{Non-private mathematical expression.} For each persona $p$ and category $k$: $C_{\text{days}} = 365$, $C_{\text{dur}} = 3{,}600{,}000$ ms;
+\[
+\text{days}_g = \text{clip}(\text{COUNT}(\text{days for } g), C_{\text{days}}), \quad
+\text{cat}_g^k = \text{clip}(\text{SUM}(\text{category}_k \text{ duration for } g), C_{\text{dur}}),
+\]
+\[
+f(D)_{p,k} = \sum_{g \in p} \text{days}_g \cdot (\text{cat}_g^k / \text{total}_g) \big/ \sum_{g \in p} \text{days}_g.
+\]
+Output: 28-dimensional (fraction or percentage) vector per persona, summing to $\sim$100\%.
+
+\textbf{Contribution bounding.} Per-GUID contributions are clipped; each category output has bounded sensitivity (e.g., $\Delta \leq 1$ per column in normalised form). We use either: (1) \textbf{Split budget:} allocate $\epsilon_{\text{per column}} = \epsilon_8/28$ per column so the total composition is $\epsilon_8$; or (2) \textbf{Single vector release:} treat the 28-dimensional output as one vector-valued query, compute the $\ell_2$ (or $\ell_1$) global sensitivity of the full vector, and apply the mechanism once with that sensitivity and budget $\epsilon_8$.
+
+\textbf{Sensitivity.} Per column (if splitting): $\Delta_j \leq 1$; then $\epsilon_j = \epsilon_8/28$. For a single vector release: $\Delta_2 = \sqrt{\sum_j \Delta_j^2}$ (e.g., $\sqrt{28}$ if $\Delta_j = 1$).
+
+\textbf{Mechanism:} Laplace with $\epsilon/28$ per column, or Analytic Gaussian on the full vector with $\epsilon_8$ and L2 sensitivity $\Delta_2$. Single draw per output (per column or per vector).
+
+\textbf{Evaluation metric:} Total variation distance (mean across persona category distributions).
+
+\textbf{Post-processing:} Clamp $\geq 0$; re-normalise each persona's row to sum to 100\%; optional Dirichlet smoothing to avoid zeros in KL.
+
+\subsection{Query 9: Package Power by Country}
+\label{sec:q9}
+
+\textbf{Source tables:} reporting.system\_sysinfo\_unique\_normalized (guid, countryname\_normalized); reporting.system\_hw\_pkg\_power (guid, nrs, mean).
+
+\textbf{Research question.} Which countries have abnormally high CPU package power consumption?
+
+\textbf{Non-private mathematical expression.} For each country $c$ with $C = 50$ W:
+\[
+x_g^c = \text{clip}(\text{SUM}(\text{nrs} \cdot \text{mean})/\text{SUM}(\text{nrs}) \text{ for } g, C), \qquad
+f(D)_c = \frac{1}{n_c} \sum_{g \in c} x_g^c, \quad n_c \geq k_{\min} = 100.
+\]
+
+\textbf{Contribution bounding.} Clip per-GUID average power to $C = 50$ W.
+
+\textbf{Sensitivity.} One GUID changes the group average by at most $C/n_c$; worst case $n_c = k_{\min}$ gives $\Delta = C/k_{\min} = 50/100 = 0.50$ W. Laplace scale $b = \Delta/\epsilon_9$.
+
+\textbf{Mechanism:} Laplace or Analytic Gaussian: add noise with scale $\Delta/\epsilon_9$. Single draw. Epsilon: $\epsilon_9$ (medium).
+
+\textbf{Evaluation metric:} Median relative error (on avg\_pkg\_power\_consumed).
+
+\textbf{Post-processing:} Clamp $\geq 0$.
+
+\subsection{Query 10: Popular Browsers by Count Usage Percentage}
+\label{sec:q10}
+
+\textbf{Source tables:} reporting.system\_web\_cat\_usage (guid, browser, duration\_ms).
+
+\textbf{Research question.} What are the global market shares of browsers by system count (and optionally instance count, duration)?
+
+\textbf{Non-private mathematical expression.} For each browser $b$:
+\[
+n_b = |\{g : \text{browser}(g) = b\}|, \quad N = \sum_b n_b, \qquad f(D)_b = (n_b / N) \times 100 \text{ (percent\_systems)}.
+\]
+One GUID contributes to one browser; we use conservative $\Delta = 1.0$.
+
+\textbf{Sensitivity.} $\Delta = 1.0$ (percentage point). Laplace scale $b = \Delta/\epsilon_{10}$.
+
+\textbf{Mechanism:} Laplace: add $\text{Lap}(0, \Delta/\epsilon_{10})$ to percent\_systems (or to counts then form percentages). Single draw. Epsilon: $\epsilon_{10}$ (smaller).
+
+\textbf{Evaluation metric:} Total variation distance (on percent\_systems distribution).
+
+\textbf{Post-processing:} Clamp $\geq 0$; re-normalise to sum to 100\%.
+
+\subsection{Query 11: RAM Utilization Histogram}
+\label{sec:q11}
+
+\textbf{Source tables:} reporting.system\_memory\_utilization (guid, sysinfo\_ram, nrs, avg\_percentage\_used).
+
+\textbf{Research question.} How does average RAM utilisation distribute across RAM size bins?
+
+\textbf{Non-private mathematical expression.} For each RAM bin $b$ (e.g., ram\_gb value) with $C = 100\%$:
+\[
+x_g^b = \text{clip}(\text{avg}_{\text{measurement}}(\text{pct\_used}_g), C), \qquad
+f(D)_b = \frac{1}{n_b} \sum_{g \in b} x_g^b, \quad n_b \geq k_{\min} = 50.
+\]
+Output: (ram\_gb, avg\_percentage\_used) per bin.
+
+\textbf{Contribution bounding.} Each GUID contributes to one bin; per-GUID avg percentage is in $[0,100]$, clipped for robustness.
+
+\textbf{Sensitivity.} One GUID changes one bin's average by at most $C/n_b$; worst case $n_b = k_{\min}$ gives $\Delta = C/k_{\min} = 100/50 = 2.0$ percentage points. Laplace scale $b = \Delta/\epsilon_{11}$ per bin.
+
+\textbf{Mechanism:} Laplace: add $\text{Lap}(0, \Delta/\epsilon_{11})$ to avg\_percentage\_used per bin. Single draw. Epsilon: $\epsilon_{11}$ (smaller).
+
+\textbf{Evaluation metric:} Total variation distance (on avg\_percentage\_used histogram, normalised to a distribution).
+
+\textbf{Post-processing:} Clamp $\geq 0$ (bins are independent; no re-normalisation required if releasing means).
+
+\subsection{Query 12: Ranked Process Classifications}
+\label{sec:q12}
+
+\textbf{Source tables:} reporting.system\_mods\_power\_consumption (user\_id, total\_power\_consumption).
+
+\textbf{Research question.} Which user IDs consume the most total CPU power across all processes?
+
+\textbf{Non-private mathematical expression.} For each user $u$ with $C = 10$ (watts):
+\[
+f(D)_u = \text{clip}\Bigl(\sum_{\text{process}} \text{power\_consumption}_{u,\text{process}}, C\Bigr).
+\]
+Output: ranked list of (user\_id, total\_power\_consumption) by $f(D)_u$ descending. This is a \emph{SUM} query (not an average), so one user's removal changes that user's output by at most $C$.
+
+\textbf{Sensitivity.} $\Delta = C = 10$ per user (global sensitivity of the sum). Laplace scale $b = \Delta/\epsilon_{12}$ per user. Composition: one vector release over all users; total $\epsilon_{12}$ for the query.
+
+\textbf{Mechanism:} Laplace: add $\text{Lap}(0, \Delta/\epsilon_{12})$ to total\_power\_consumption per user. Single draw. Epsilon: $\epsilon_{12}$ (moderate).
+
+\textbf{Evaluation metric:} Spearman $\rho$ (rank correlation on total\_power\_consumption).
+
+\textbf{Post-processing:} Clamp $\geq 0$; ranking is deterministic post-processing.
+
 \end{document}
