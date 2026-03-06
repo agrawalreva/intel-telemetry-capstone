@@ -637,4 +637,43 @@ Figure~\ref{fig:privacy_utility_curves} shows the privacy-utility curves by metr
 \label{fig:pareto}
 \end{figure}
 
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Privacy and Utility Tradeoff}
+\label{sec:disc_tradeoff}
+
+The results confirm the expected privacy-utility tradeoff: at $\epsilon = 0.01$ utility is poor (high median relative error, high total variation distance, low Spearman rank correlation), and at $\epsilon = 1.0$ or $\infty$ utility approaches or matches the non-private baseline. The best-epsilon selection ($\epsilon = 1.0$) reflects that on mini no $\epsilon$ reached the 80\% mean-preservation target, so $\epsilon = 1.0$ was chosen as the best available (highest mean utility preserved) while keeping a finite privacy guarantee. Organizations can tune $\epsilon$ downward for stronger privacy (accepting more error) or upward for higher accuracy (weaker privacy). The Laplace mechanism's advantage at low $\epsilon$ is consistent with its tighter tail for the same scale parameter in one dimension; the Analytic Gaussian is calibrated for $(\epsilon,\delta)$-DP and yields a smaller $\sigma$ than the classical bound for the same $(\epsilon,\delta)$, which can help on vector-valued or multi-column outputs (Q7, Q8, Q9).
+
+\subsection{Interpretation of the Privacy-Utility Tradeoff}
+\label{sec:disc_interpretation}
+
+We evaluated query utility across multiple privacy budgets using median relative error, total variation distance, and Spearman rank correlation. As expected, increasing $\epsilon$ improves utility because less noise is added to query results. In the \textbf{baseline} variant, utility continued improving until approximately $\epsilon = 1.0$, which produced the highest fraction of queries passing the predefined accuracy thresholds (median relative error $\leq 0.25$, total variation distance $\leq 0.15$, Spearman $\rho \geq 0.5$). As a result, $\epsilon = 1.0$ was identified as the optimal privacy-utility tradeoff for the baseline configuration and was used for full-database runs.
+
+In the \textbf{advance} variant, the selected optimal $\epsilon$ shifted to \textbf{0.5} for both Laplace and Gaussian (from the same utility-preservation scoring on mini). This indicates that the advance implementation can achieve similar levels of query accuracy while requiring a smaller privacy budget: the advance approach preserves more privacy while maintaining comparable utility. The shift occurs because the utility curve in the advance runs reaches its plateau earlier, so that increasing $\epsilon$ beyond 0.5 yields only marginal improvements in accuracy.
+
+An important observation is that even without privacy noise ($\epsilon = \infty$), the system achieves approximately 80\% query pass rate rather than 100\%. A subset of queries therefore fails the evaluation thresholds regardless of noise, likely due to inherent variability in query structure, small group sizes (e.g., on mini), or metric sensitivity. Consequently, the optimal privacy budget corresponds to the smallest $\epsilon$ that reaches the utility plateau rather than the largest possible $\epsilon$.
+
+Overall, the advance variant improves the privacy-utility tradeoff by achieving comparable query accuracy at a lower privacy budget ($\epsilon = 0.5$) compared to the baseline configuration ($\epsilon = 1.0$). The baseline results reported in the main body of this report use $\epsilon = 1.0$; advance runs at $\epsilon = 0.5$ offer a stronger guarantee for deployment when that variant is used.
+
+\subsection{Practical Implications}
+\label{sec:disc_practical}
+
+For Intel (or similar) telemetry, releasing the 12 query answers at $\epsilon = 1.0$ per query (or a composed total $\epsilon_{\text{total}} = 12$ under basic composition) provides a concrete deployment point: most queries achieve pass thresholds, and the guarantee is auditable from the published sensitivity and mechanism. Queries that remain challenging (Q4 vendor percentage, Q6 browser winner, Q12 ranked processes on mini) suggest either allocating more budget to those queries, using mechanism-specific tweaks (e.g., Report Noisy Max for Q6), or accepting lower utility for the most sensitive releases. The pipeline is reproducible (fixed seed, versioned scripts) and can be re-run on updated data or with different epsilon allocations.
+
+\subsection{Limitations}
+\label{sec:disc_limitations}
+
+Limitations include the following. (1) \textbf{Mini vs full:} Mini results are noisier and more variable due to smaller group sizes (e.g., Q5 has 11 rows, Q12 has few users); full-database results at $\epsilon = 1.0$ are more stable. (2) \textbf{Metric coverage:} The evaluation summary does not include queries 10 and 11 in all runs; the report therefore emphasises queries 1 to 9 and 12. (3) \textbf{Single $\epsilon$ on full:} Full database was run only at the selected best $\epsilon$ (1.0), so privacy-utility curves on full data are not available unless additional runs are performed. (4) \textbf{Baseline vs advance:} Full-database results and figures in this report use the baseline variant at $\epsilon = 1.0$. The advance variant selects $\epsilon = 0.5$ on mini (Section~\ref{sec:disc_interpretation}); a full-database run of the advance variant at $\epsilon = 0.5$ could be compared in future work. (5) \textbf{Composition:} We use basic composition; advanced composition or RDP accounting could reduce the total $\epsilon$ for the same per-query budgets.
+
+\subsection{Assumptions and Threat Model}
+\label{sec:disc_threat}
+
+We assume \emph{user-level} (device-level) differential privacy: the adversary cannot distinguish between datasets that differ in one GUID's entire contribution. We do not model collusion among multiple analysts or repeated adaptively chosen queries beyond the fixed 12; in practice, the same budget would be consumed each time the pipeline is run. We assume the reporting layer and clipping are applied correctly so that sensitivity bounds hold; errors in SQL clipping would invalidate the guarantee. The threat model is standard for DP query release: we protect against any single user's data being inferred from the released statistics, up to the $(\epsilon,\delta)$ parameters.
+
+\subsection{Deployment Considerations}
+\label{sec:disc_deployment}
+
+Deployment would involve: (1) exporting baseline query results from the current database; (2) running the Laplace and Gaussian mechanisms at the chosen $\epsilon$ (e.g., 1.0) with a fixed seed for reproducibility; (3) storing the noisy outputs in a secure but accessible location for analysts; (4) documenting the composed $\epsilon_{\text{total}}$ and $\delta_{\text{total}}$ for transparency. Re-running the pipeline on a schedule would consume the same budget each run unless the data is considered a new dataset under a separate budget.
+
 \end{document}
