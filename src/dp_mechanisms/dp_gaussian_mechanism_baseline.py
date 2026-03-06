@@ -56,7 +56,6 @@ from dp_config import (
     get_l2_sensitivity,
     get_sensitivity,
     gaussian_sigma,
-    build_output_dir,
 )
 
 
@@ -539,10 +538,27 @@ def run_gaussian_mechanism(database: str = "mini",
                 print(f"    {k}: {v}")
 
             # Save noisy CSV
-            out_dir = build_output_dir("gaussian", database, epsilon)
+
+            # Base folder: data/dp_gaussian_mini or data/dp_gaussian_full
+            base_out = (
+                os.path.join(os.path.dirname(BASELINE_MINI), "dp_gaussian_mini")
+                if database == "mini"
+                else os.path.join(os.path.dirname(BASELINE_FULL), "dp_gaussian_full")
+            )
+
+            # Variant folder
+            variant_dir = os.path.join(base_out, "baseline")
+
+            # Epsilon folder
+            eps_folder = f"eps_{eps_str}"
+
+            out_dir = os.path.join(variant_dir, eps_folder)
+
             Path(out_dir).mkdir(parents=True, exist_ok=True)
+
             out_path = os.path.join(out_dir, filename)
             noisy_df.to_csv(out_path, index=False)
+
             print(f"    Saved → {out_path}")
 
             # Accumulate summary row
@@ -564,9 +580,9 @@ def run_gaussian_mechanism(database: str = "mini",
     # -------------------------------------------------------------------------
     summary_df  = pd.DataFrame(all_summary_rows)
     summary_dir = (
-        os.path.join(os.path.dirname(BASELINE_MINI), "dp_gaussian_mini")
+        os.path.join(os.path.dirname(BASELINE_MINI), "dp_gaussian_mini", "baseline")
         if database == "mini"
-        else os.path.join(os.path.dirname(BASELINE_FULL), "dp_gaussian_full")
+        else os.path.join(os.path.dirname(BASELINE_FULL), "dp_gaussian_full", "baseline")
     )
     Path(summary_dir).mkdir(parents=True, exist_ok=True)
     summary_path = os.path.join(summary_dir, "gaussian_metric_summary.csv")
