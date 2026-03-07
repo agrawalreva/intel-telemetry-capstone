@@ -381,20 +381,30 @@
 \newcommand{\tocless}[2]{\bgroup\let\addcontentsline=\nocontentsline#1{#2}\egroup}
 \providecommand{\maketoc}{}
 \renewcommand{\maketoc}{%
-    \etocsettocdepth{1}
-    \etocsettocstyle{\medskip}{\bigskip}
-    \newlength{\npageW}
-    \settowidth{\npageW}{9} % width of the page number box
-    \newlength{\subnumberW}
-    \settowidth{\subnumberW}{99.9}
-    \newcommand*{\DotsAndPage}
-    {\nobreak\leaders\hbox{\normalsize\hbox to 1.75ex {\hss.\hss}}% make dots
-      \hfill\nobreak\rlap{\makebox[\npageW]{\etocpage}}\par}
-    \etocsetstyle{section}
-    {}
-    {\normalfont\noindent}
-    {\hspace{0.5in}\llap{\makebox[\subnumberW][l]{\etocnumber}}\etocname\DotsAndPage}
-    {}
+    \par\vspace{2em}%
+    \noindent{\centering\LARGE\bfseries Table of Contents\par}%
+    \vspace{1.5em}%
+    \etocsettocdepth{2}%
+    \etocsettocstyle{\medskip}{\bigskip}%
+    \newlength{\npageW}%
+    \settowidth{\npageW}{99}%
+    \newlength{\subnumberW}%
+    \setlength{\subnumberW}{2.5em}%
+    \newlength{\subsubnumberW}%
+    \setlength{\subsubnumberW}{5em}%
+    \newcommand*{\DotsAndPage}{%
+      \nobreak\leaders\hbox{\normalsize\hbox to 1.5ex {\hss.\hss}}%
+      \hfill\nobreak\makebox[\npageW][r]{\etocpage}\par}%
+    \etocsetstyle{section}%
+    {}%
+    {\normalfont\noindent\addvspace{0.8ex}}%
+    {\normalfont\bfseries\makebox[\subnumberW][l]{\etocnumber}\etocname\ \DotsAndPage}%
+    {}%
+    \etocsetstyle{subsection}%
+    {}%
+    {\normalfont\noindent\addvspace{0.3ex}}%
+    {\normalfont\normalsize\hspace{1.2em}\makebox[\subsubnumberW][l]{\etocnumber}\etocname\ \DotsAndPage}%
+    {}%
     \localtableofcontents
 }
 

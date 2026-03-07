@@ -52,8 +52,9 @@ Code: \url{https://github.com/agrawalreva/intel-telemetry-capstone}
 Website: \url{https://agrawalreva.github.io/intel-telemetry-capstone/}
 \end{center}
 
-\maketoc
 \clearpage
+\maketoc
+\newpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Main Contents
@@ -707,7 +708,7 @@ Advance  & Gaussian & 0.5 & $-12.32$ & $-49.00$ & 0.1 & $-28.91$ \\
 \end{tabular}
 \end{table}
 
-Best $\epsilon$ is 1.0 for the baseline and 0.5 for the advance variant (utility-preservation scoring is defined in Section~\ref{sec:project_structure}). Both operating points are fully differentially private; only $\epsilon = \infty$ is non-private. The selection logic chooses the $\epsilon$ that preserves the highest mean utility on mini.
+The \textbf{Mean util.} and \textbf{Min util.} columns in Table~\ref{tab:best_epsilon} report negative values (e.g., $-6.86$, $-47.42$). These numbers come from the utility-preservation scoring scale: each query's DP output is compared to the no-noise baseline at $\epsilon = \infty$, and the score measures how much of that baseline utility is preserved. When the DP output is far from the baseline (e.g., at low $\epsilon$ or for queries that are inherently noisy), the preserved fraction can be negative or below zero on this scale. A negative value does not mean that the released answers are harmful; it means that on mini, no $\epsilon$ in the grid reached the 80\% mean-preservation target, so the selection logic correctly falls back to the $\epsilon$ with the highest score (best available). Both chosen operating points ($\epsilon = 1.0$ for baseline, $\epsilon = 0.5$ for advance) are fully differentially private; only $\epsilon = \infty$ is non-private.
 
 \subsection{Full-Database Results at $\epsilon = 1.0$}
 \label{sec:full_results}
@@ -754,6 +755,7 @@ Figure~\ref{fig:privacy_utility_curves} shows the privacy-utility curves by metr
 \label{fig:pareto}
 \end{figure}
 
+\clearpage
 \section{Discussion}
 \label{sec:discussion}
 
@@ -780,7 +782,7 @@ For Intel (or similar) telemetry, releasing the 12 query answers at $\epsilon = 
 \subsection{Scope and Future Directions}
 \label{sec:disc_limitations}
 
-The current implementation leaves room for extension. Mini results show greater variability due to smaller group sizes (e.g., Q5 has 11 rows, Q12 has few users); full-database results at $\epsilon = 1.0$ are more stable. The report emphasises queries 1 to 9 and 12; queries 10 and 11 can be added to the evaluation in future runs. Privacy-utility curves on full data can be obtained by running additional $\epsilon$ sweeps. Full-database results here use the baseline variant at $\epsilon = 1.0$; the advance variant selects $\epsilon = 0.5$ on mini (Section~\ref{sec:disc_interpretation}), and a full-database run at $\epsilon = 0.5$ for the advance variant would further validate the improved guarantee. We use \emph{basic composition}; advanced composition (e.g., RDP accounting) could tighten the composed $\epsilon$ for the same per-query budgets. Clipping bounds are set from domain knowledge and percentile inspection; data-adaptive or privately-selected clipping could improve utility further while preserving the DP guarantee.
+The current implementation leaves room for extension. Mini results show greater variability due to smaller group sizes (e.g., Q5 has 11 rows, Q12 has few users); full-database results at $\epsilon = 1.0$ are more stable. The report emphasises queries 1 to 9 and 12 in the main narrative. Privacy-utility curves on full data can be obtained by running additional $\epsilon$ sweeps. Full-database results here use the baseline variant at $\epsilon = 1.0$; the advance variant selects $\epsilon = 0.5$ on mini (Section~\ref{sec:disc_interpretation}), and a full-database run at $\epsilon = 0.5$ for the advance variant would further validate the improved guarantee. We use \emph{basic composition}; advanced composition (e.g., RDP accounting) could tighten the composed $\epsilon$ for the same per-query budgets. Clipping bounds are set from domain knowledge and percentile inspection; data-adaptive or privately-selected clipping could improve utility further while preserving the DP guarantee.
 
 \subsection{Assumptions and Threat Model}
 \label{sec:disc_threat}
@@ -802,7 +804,7 @@ We designed and implemented a differentially private query-release system for In
 The work demonstrates that query release under differential privacy is tractable at scale for telemetry analytics: sensitivity is bounded by design, mechanisms are standard and well understood, and the privacy-utility tradeoff can be tuned via $\epsilon$. It provides a rigorous, deployable alternative to releasing raw or lightly anonymized aggregates and avoids the pitfalls of synthetic data generation for this setting. The repository (export baseline, DP mechanisms, evaluation, and best-epsilon selection) can serve as a template for other telemetry or event-log systems where user-level DP is required.
 
 \subsection{Future Work}
-Future work includes: extending the evaluation to queries 10 and 11; advanced composition and RDP accounting to tighten the composed guarantee; comparison with other mechanisms (e.g., the exponential mechanism for rankings); and a full-database run of the advance variant at $\epsilon = 0.5$ to confirm the improved guarantee on production-scale data.
+Future work includes: advanced composition and RDP accounting to tighten the composed $\epsilon$ for the same per-query budgets; comparison with other mechanisms (e.g., the exponential mechanism for rankings); and a full-database run of the advance variant at $\epsilon = 0.5$ to confirm the improved guarantee on production-scale data.
 
 \subsection{Acknowledgements}
 We thank our project advisors, Yu-Xiang Wang and Bijan Arbab, as well as Intel for providing access to the telemetry data and for the query set that motivated our specialized schema.
@@ -823,7 +825,15 @@ We thank our project advisors, Yu-Xiang Wang and Bijan Arbab, as well as Intel f
 \makeappendix
 
 \subsection{Appendix A: Contributions}
-Reva Agrawal, Dhruv Patel, and Jordan Lambino contributed equally across the pipeline (data export, DP mechanisms, evaluation, and visualization), report (writing and structure), and website and documentation.
+
+\textbf{Reva Agrawal.}
+Reva led the exploration of the 22 reporting tables in the schema, identifying the relevant tables and columns needed for the analysis. She confirmed the overall differential privacy approach with the advisor regularly. After the initial pipeline components were established, she implemented the Gaussian mechanism and enhanced the configuration file to support the final workflow. Reva also contributed to selecting an appropriate epsilon value based on privacy--utility trade-offs. In addition to the technical work, she wrote a large portion of the report and designed the project's poster and website.
+
+\textbf{Dhruv Patel.}
+Dhruv focused on the data infrastructure and workflow setup for the project. He validated the SQL queries used in the pipeline and built both the mini and full versions of the DuckDB database used for experimentation and final runs. He developed the wireframe for the overall project structure and implemented the configuration files that support the workflow. Dhruv also built the baseline implementation and carried out evaluation and testing of the pipeline, producing the result logs used in analysis. Alongside this, he maintained the project README and contributed to sections of the report, poster, and website.
+
+\textbf{Jordan Lambino.}
+Jordan concentrated on the visualization and presentation components of the project. He created the wireframe for the project website and maintained its content throughout development. To support testing of the workflow, he generated dummy data that allowed the pipeline to be run and validated during early stages. Jordan also implemented the Laplace mechanism and developed the trade-off visualizations used to compare different privacy settings, including the plots included in the final analysis. In addition, he reviewed and edited sections of the report and contributed to the poster and website materials.
 
 \subsection{Appendix B: Project Proposal}
 \url{https://drive.google.com/file/d/1-uWLW_FLOvIJ-335J9SwYmFleC-lXZaR/view?usp=sharing}
