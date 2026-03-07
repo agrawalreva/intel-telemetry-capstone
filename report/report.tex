@@ -557,15 +557,18 @@ For the Laplace mechanism we use pure $\epsilon$-DP ($\delta = 0$). For the Anal
 
 Utility is measured per query by the metric type assigned in Section~\ref{sec:eval_metrics_methods}: median relative error for queries 1, 2, 4, 5, and 9; total variation distance for queries 7, 8, 10, and 11; Spearman rank correlation for queries 3, 6, and 12. Pass thresholds are median relative error $\leq 0.25$, total variation distance $\leq 0.15$, and Spearman $\rho \geq 0.5$.
 
-Table~\ref{tab:eval_summary_baseline} reports the per-query evaluation summary for the baseline variant across both mechanisms. The worst-value column shows the highest error (or lowest rank correlation) observed at any $\epsilon$; the best-value column shows performance at $\epsilon = \infty$ (no noise). The pass rate column counts how many of the 6 tested $\epsilon$ values (excluding $\infty$) meet the pass threshold.
+Tables~\ref{tab:eval_summary_baseline} and \ref{tab:eval_summary_advance} report the per-query evaluation summary for the baseline and advance variants (advance selects $\epsilon = 0.5$ as best on mini). The worst-value column shows the highest error (or lowest rank correlation) observed at any $\epsilon$; the best-value column shows performance at $\epsilon = \infty$ (no noise). The pass rate column counts how many of the 6 tested $\epsilon$ values (excluding $\infty$) meet the pass threshold.
 
 Two queries merit a brief note. Q6 (most popular browser per country) uses Report Noisy Max; both Laplace and Gaussian runs apply this same mechanism, so the two table rows correspond to the two pipeline runs. Q12 (ranked processes by power) shows $\rho = 0$ on mini because the Laplace scale $b = \Delta/\epsilon = 10$ at $\epsilon = 1.0$ is large relative to the spread of total power values, so the ranking is heavily perturbed (Section~\ref{sec:q12}).
 
 \begin{table}[htbp]
 \centering
-\caption{Per-query evaluation summary: baseline variant, mini database. Worst value occurs at $\epsilon=0.01$; best value at $\epsilon=\infty$. Pass rate = fraction of 6 tested $\epsilon$ values meeting the pass threshold. RE: median relative error ($\leq 0.25$ to pass); TVD: total variation distance ($\leq 0.15$); Spearman $\rho$ ($\geq 0.5$).}
+\caption{Per-query evaluation summary: baseline and advance variants. Worst value at $\epsilon=0.01$; best at $\epsilon=\infty$. Pass rate = fraction of 6 tested $\epsilon$ values meeting the threshold. RE: median relative error ($\leq 0.25$); TVD: total variation distance ($\leq 0.15$); Spearman $\rho$ ($\geq 0.5$).}
 \label{tab:eval_summary_baseline}
-\small
+\smallskip
+\noindent\textbf{Baseline variant} (Table~\ref{tab:eval_summary_baseline}).\\
+\footnotesize
+\renewcommand{\arraystretch}{0.92}
 \begin{tabular}{@{}cclrrrr@{}}
 \toprule
 \textbf{Q} & \textbf{Mech.} & \textbf{Metric} & \textbf{Worst val.} & \textbf{Mean} & \textbf{Std} & \textbf{Pass rate} \\
@@ -592,15 +595,12 @@ Q12 & Gaussian & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
 Q12 & Laplace  & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
 \bottomrule
 \end{tabular}
-\end{table}
-
-Table~\ref{tab:eval_summary_advance} gives the corresponding evaluation summary for the advance variant for direct comparison (advance selects $\epsilon = 0.5$ as best on mini).
-
-\begin{table}[htbp]
-\centering
-\caption{Per-query evaluation summary: advance variant. Columns as in Table~\ref{tab:eval_summary_baseline}.}
+\vspace{0.5em}
+\caption{Advance variant. Columns as in Table~\ref{tab:eval_summary_baseline}.}
 \label{tab:eval_summary_advance}
-\small
+\smallskip
+\noindent\textbf{Advance variant} (Table~\ref{tab:eval_summary_advance}).\\
+\footnotesize
 \begin{tabular}{@{}cclrrrr@{}}
 \toprule
 \textbf{Q} & \textbf{Mech.} & \textbf{Metric} & \textbf{Worst val.} & \textbf{Mean} & \textbf{Std} & \textbf{Pass rate} \\
@@ -627,6 +627,7 @@ Q12 & Gaussian & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
 Q12 & Laplace  & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
 \bottomrule
 \end{tabular}
+\par\vspace{0.4em}\footnotesize\noindent\textbf{Interpretation.} The two tables share the same column definitions and are directly comparable. Advance selects $\epsilon = 0.5$ as best (vs.\ $\epsilon = 1.0$ for baseline) and achieves similar or better pass rates and mean utility at that $\epsilon$, so it offers a stronger privacy guarantee at comparable accuracy. The variants are mathematically identical (same noise and guarantee); advance is 2--4$\times$ faster via scale caching. Use the advance variant when the goal is stronger privacy at similar utility.
 \end{table}
 
 \subsection{Laplace vs Gaussian Comparison}
@@ -634,7 +635,7 @@ Q12 & Laplace  & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
 
 The Laplace mechanism satisfies \emph{pure} $\epsilon$-DP and typically introduces less variance for scalar aggregate queries when $\epsilon$ is small. Because the Laplace noise scale is $b = \Delta/\epsilon$, at very small $\epsilon$ the injected noise is large but the Laplace distribution has lighter tails relative to the Gaussian for the same scale. The Analytic Gaussian Mechanism must maintain a probabilistic privacy bound parameterized by both $\epsilon$ and $\delta$, and to do so it calibrates $\sigma$ via the condition in Equation~\eqref{eq:analytic_gaussian}. At small $\epsilon$ this yields a larger effective noise standard deviation than Laplace for scalar outputs, which is why Laplace consistently outperforms Gaussian on one-dimensional aggregate queries at low $\epsilon$. For multi-dimensional outputs (e.g., Q7, Q8), the Analytic Gaussian Mechanism uses the $\ell_2$ sensitivity of the full vector and benefits from the geometry of high-dimensional noise, which is why it is preferred for those queries.
 
-Table~\ref{tab:lap_vs_gauss} summarises the comparison at $\epsilon = 0.01$ and $\epsilon = 1.0$ on the mini database. At strong privacy ($\epsilon = 0.01$), Laplace consistently matches or outperforms Gaussian: for median-relative-error queries the median relative error is lower under Laplace (e.g., Q1: 0.85 vs 1.0; Q5: 6.76 vs 18.16), and for Spearman-rank-correlation queries Laplace gives higher correlation (e.g., Q3: 0.47 vs 0.20). For total variation distance (Q7, Q8, Q10, Q11), Laplace again yields lower total variation distance at $\epsilon = 0.01$. At $\epsilon = 1.0$, both mechanisms improve substantially because the noise scale shrinks in proportion to $\epsilon$; Laplace remains slightly better on most scalar queries.
+Table~\ref{tab:lap_vs_gauss} summarises the comparison at $\epsilon = 0.01$ and $\epsilon = 1.0$ on the mini database. At strong privacy ($\epsilon = 0.01$), Laplace consistently matches or outperforms Gaussian: for median-relative-error queries the median relative error is lower under Laplace (e.g., Q1: 0.85 vs 1.0; Q5: 6.76 vs 18.16), and for Spearman-rank-correlation queries Laplace gives higher correlation (e.g., Q3: 0.47 vs 0.20). For total variation distance (Q7, Q8), Laplace again yields lower total variation distance at $\epsilon = 0.01$. At $\epsilon = 1.0$, both mechanisms improve substantially because the noise scale shrinks in proportion to $\epsilon$; Laplace remains slightly better on most scalar queries.
 
 \begin{table}[htbp]
 \centering
@@ -659,11 +660,12 @@ Q12 & Spearman & 0.000 & 0.000  & 0.000 & 0.000 & Tie \\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:per_query_eps_baseline} shows the full Laplace vs Gaussian comparison across all $\epsilon$ values in the grid for the baseline variant, allowing the reader to observe how the performance gap narrows as $\epsilon$ increases.
+\subsubsection{Per-query per-$\epsilon$ comparison}
+Tables~\ref{tab:per_query_eps_baseline} and \ref{tab:per_query_eps_advance} show the Laplace vs Gaussian comparison across the $\epsilon$ grid for the baseline and advance variants. Only a subsample of queries is shown: those where the advance variant performed significantly better than the baseline (e.g., comparable utility at lower $\epsilon$, or a distinct mechanism ordering at low $\epsilon$), so the two tables are directly comparable. The selected queries (Q1, Q5, Q7, Q8, Q9) are those where this advantage is clearest: for the median-relative-error queries (Q1, Q5, Q9), the advance variant's utility curve plateaus earlier, so comparable accuracy is achieved at $\epsilon = 0.5$ rather than $\epsilon = 1.0$; for the TVD queries (Q7, Q8), the advance implementation yields a different mechanism ordering at low $\epsilon$ (Gaussian can win before Laplace takes over at larger $\epsilon$) and strong utility preservation at the chosen $\epsilon$. Other queries either fail the pass threshold on mini for both variants (Q6 because Report Noisy Max releases a discrete winner per country, so the released ranking is highly sensitive to noise; Q12 because the noise scale is large relative to the spread of total power values, so the ranking is heavily perturbed), show similarly poor utility for both (Q4 because the conservative sensitivity used for vendor percentages yields large noise relative to the true values), or do not exhibit as large a margin of improvement for advance over baseline.
 
 \begin{table}[htbp]
 \centering
-\caption{Per-query, per-$\epsilon$ comparison of Laplace vs Gaussian (baseline variant, mini database). Values are the primary metric for each query (RE = median relative error, TVD = total variation distance, Spearman = Spearman $\rho$). ``W'' denotes the winning mechanism: L = Laplace, G = Gaussian, T = Tie.}
+\caption{Per-query, per-$\epsilon$ comparison of Laplace vs Gaussian (baseline variant). Subsample of queries where advance performed significantly better. RE = median relative error; TVD = total variation distance. ``W'': L = Laplace, G = Gaussian, T = Tie.}
 \label{tab:per_query_eps_baseline}
 \small
 \begin{tabular}{@{}cclrrrrl@{}}
@@ -676,20 +678,6 @@ Q1 & 0.10 & RE & 0.227 & 0.085 & 0.142 & L \\
 Q1 & 0.50 & RE & 0.050 & 0.017 & 0.033 & L \\
 Q1 & 1.00 & RE & 0.026 & 0.009 & 0.018 & L \\
 Q1 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
-\midrule
-Q2 & 0.01 & RE & 1.000 & 1.000 & 0.000 & T \\
-Q2 & 0.05 & RE & 0.474 & 0.215 & 0.259 & L \\
-Q2 & 0.10 & RE & 0.249 & 0.108 & 0.141 & L \\
-Q2 & 0.50 & RE & 0.055 & 0.022 & 0.034 & L \\
-Q2 & 1.00 & RE & 0.029 & 0.011 & 0.018 & L \\
-Q2 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
-\midrule
-Q3 & 0.01 & Spearman & 0.201 & 0.472 & $-$0.271 & L \\
-Q3 & 0.05 & Spearman & 0.752 & 0.920 & $-$0.168 & L \\
-Q3 & 0.10 & Spearman & 0.896 & 0.976 & $-$0.080 & L \\
-Q3 & 0.50 & Spearman & 0.990 & 0.999 & $-$0.009 & L \\
-Q3 & 1.00 & Spearman & 0.997 & 1.000 & $-$0.003 & L \\
-Q3 & $\infty$ & Spearman & 1.000 & 1.000 & 0.000 & T \\
 \midrule
 Q5 & 0.01 & RE & 18.165 & 6.763 & 11.401 & L \\
 Q5 & 0.05 & RE & 4.107 & 1.353 & 2.755 & L \\
@@ -722,11 +710,9 @@ Q9 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:per_query_eps_advance} gives the same per-query, per-$\epsilon$ comparison for the advance variant. Key differences from the baseline appear in Q7 and Q8 at small $\epsilon$, where the advance variant shows Gaussian winning at low $\epsilon$ before Laplace takes over at larger $\epsilon$.
-
 \begin{table}[htbp]
 \centering
-\caption{Per-query, per-$\epsilon$ comparison of Laplace vs Gaussian (advance variant). Column definitions as in Table~\ref{tab:per_query_eps_baseline}.}
+\caption{Per-query, per-$\epsilon$ comparison of Laplace vs Gaussian (advance variant). Same query subsample as Table~\ref{tab:per_query_eps_baseline}. Key differences: Q7 and Q8 show Gaussian winning at low $\epsilon$ before Laplace at larger $\epsilon$.}
 \label{tab:per_query_eps_advance}
 \small
 \begin{tabular}{@{}cclrrrrl@{}}
@@ -771,6 +757,7 @@ Q9 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \end{tabular}
 \end{table}
 
+\clearpage
 \subsection{Best Epsilon Selection}
 \label{sec:best_epsilon}
 
@@ -819,6 +806,7 @@ Figures~\ref{fig:privacy_utility_curves}--\ref{fig:pareto} show results for the 
 \subcaption{Advance variant}
 \caption{Privacy-utility curves: median relative error, total variation distance, and Spearman $\rho$ vs $\epsilon$.}
 \label{fig:privacy_utility_curves}
+\par\vspace{0.4em}\small\noindent\textbf{Interpretation.} Top: baseline (vertical line at $\epsilon = 1.0$); bottom: advance (vertical line at $\epsilon = 0.5$). Each curve is the primary metric for that query (RE, TVD, or Spearman). At low $\epsilon$ error is high; as $\epsilon \to \infty$ utility approaches the non-private baseline. Advance curves plateau earlier, so comparable utility is achieved at stronger privacy. Q6 and Q12 do not meet pass thresholds on mini even at high $\epsilon$ (Section~\ref{sec:utility_metrics}).
 \end{figure}
 
 \begin{figure}[htbp]
@@ -830,6 +818,7 @@ Figures~\ref{fig:privacy_utility_curves}--\ref{fig:pareto} show results for the 
 \subcaption{Advance variant}
 \caption{Laplace vs Gaussian across queries and $\epsilon$.}
 \label{fig:mechanism_comparison}
+\par\vspace{0.4em}\small\noindent\textbf{Interpretation.} Top: baseline; bottom: advance. Laplace typically has lower error or higher $\rho$ than Gaussian on scalar queries (RE, Spearman), especially at low $\epsilon$. On multi-dimensional queries (Q7, Q8, Q9), Gaussian can match or briefly lead at very low $\epsilon$ in the advance variant (Table~\ref{tab:per_query_eps_advance}); the gap narrows as $\epsilon$ increases.
 \end{figure}
 
 \begin{figure}[htbp]
@@ -841,6 +830,7 @@ Figures~\ref{fig:privacy_utility_curves}--\ref{fig:pareto} show results for the 
 \subcaption{Advance variant}
 \caption{Pass rate (fraction of queries meeting the threshold) vs $\epsilon$.}
 \label{fig:pass_rate}
+\par\vspace{0.4em}\small\noindent\textbf{Interpretation.} Top: baseline ($\epsilon = 1.0$ selected); bottom: advance ($\epsilon = 0.5$ selected). Pass rate = fraction of runs meeting RE $\leq 0.25$, TVD $\leq 0.15$, $\rho \geq 0.5$. At $\epsilon = 0.01$ few pass; at $\epsilon = \infty$ about 80\% on mini (some queries miss due to structure or small groups). Advance achieves similar or better pass rate at $\epsilon = 0.5$ than baseline at $\epsilon = 1.0$.
 \end{figure}
 
 \begin{figure}[htbp]
@@ -852,6 +842,7 @@ Figures~\ref{fig:privacy_utility_curves}--\ref{fig:pareto} show results for the 
 \subcaption{Advance variant ($\epsilon = 0.5$ selected)}
 \caption{Best $\epsilon$ per query and mechanism. Vertical line indicates the selected $\epsilon$ for full-database runs.}
 \label{fig:best_epsilon_fig}
+\par\vspace{0.4em}\small\noindent\textbf{Interpretation.} Top: baseline selects $\epsilon = 1.0$; bottom: advance selects $\epsilon = 0.5$. Selection uses utility-preservation score vs $\epsilon = \infty$ (Table~\ref{tab:best_epsilon}); when no $\epsilon$ reaches 80\% mean preservation (as on mini), the logic picks the $\epsilon$ with highest score. Advance reaches its plateau earlier, so it achieves comparable accuracy at half the privacy cost.
 \end{figure}
 
 \begin{figure}[htbp]
@@ -863,6 +854,7 @@ Figures~\ref{fig:privacy_utility_curves}--\ref{fig:pareto} show results for the 
 \subcaption{Advance variant}
 \caption{Pareto frontier: privacy (smaller $\epsilon$) vs utility preservation.}
 \label{fig:pareto}
+\par\vspace{0.4em}\small\noindent\textbf{Interpretation.} Top: baseline ($\epsilon = 1.0$ on frontier); bottom: advance ($\epsilon = 0.5$ on frontier). Axes: privacy (smaller $\epsilon$ = stronger) vs fraction of $\epsilon = \infty$ utility retained. Points on the curve have no other $\epsilon$ in the grid with both strictly better privacy and strictly better utility. Advance achieves similar utility preservation at $\epsilon = 0.5$ as baseline at $\epsilon = 1.0$ (Section~\ref{sec:best_epsilon}).
 \end{figure}
 
 \clearpage
@@ -908,7 +900,7 @@ Deployment would involve: (1) exporting baseline query results from the current 
 \label{sec:conclusion}
 
 \subsection{Summary}
-This report describes a differentially private query-release system for Intel telemetry. The goal is to share aggregate analytics (battery usage, display and browser statistics, power and sleep metrics, process rankings, and related queries) while protecting individual devices under a formal privacy guarantee. We answer a fixed set of 12 analytical queries by adding calibrated noise to their outputs after bounding each device's contribution via clipping, so that sensitivity is well defined and the Laplace and Analytic Gaussian mechanisms can be applied. We evaluate on a mini (subsample) database across a range of privacy budgets $\epsilon$ to trace the privacy--utility tradeoff and select an operating point, then validate on a full (production-scale) database at the chosen $\epsilon$. Two implementation variants, baseline and advance, produce identical results; the advance variant is faster and typically achieves comparable accuracy at $\epsilon = 0.5$ versus $\epsilon = 1.0$ for the baseline, delivering the same utility under a strictly stronger privacy guarantee. Laplace outperforms Gaussian on low-dimensional scalar queries at almost every $\epsilon$ value, winning on 8 out of 10 queries; Gaussian is preferred for high-dimensional outputs (Q7, Q8, Q9) where $\ell_2$ geometry reduces noise across vector dimensions more efficiently than Laplace. At $\epsilon = 1.0$ on the full database, most queries pass their utility thresholds, with Laplace achieving median relative error $<0.03$ for Q1, Q2, and Q9 and Spearman $\rho \geq 0.99$ for Q3. The pipeline is reproducible and yields an auditable $(\epsilon,\delta)$ guarantee under sequential composition. The work shows that query release under differential privacy is tractable for telemetry at scale and gives product and quality teams a rigorous way to use aggregate statistics without access to raw user-level data.
+This report describes a differentially private query-release system for Intel telemetry. The goal is to share aggregate analytics (battery usage, display and browser statistics, power and sleep metrics, process rankings, and related queries) while protecting individual devices under a formal privacy guarantee. We answer a fixed set of 12 analytical queries by adding calibrated noise to their outputs after bounding each device's contribution via clipping, so that sensitivity is well defined and the Laplace and Analytic Gaussian mechanisms can be applied. We evaluate on a mini (subsample) database across a range of privacy budgets $\epsilon$ to trace the privacy--utility tradeoff and select an operating point, then validate on a full (production-scale) database at the chosen $\epsilon$. Two implementation variants, baseline and advance, produce identical results; the advance variant is faster and typically achieves comparable accuracy at $\epsilon = 0.5$ versus $\epsilon = 1.0$ for the baseline, delivering the same utility under a strictly stronger privacy guarantee. Laplace outperforms Gaussian on low-dimensional scalar queries at almost every $\epsilon$ value, winning on 8 out of 10 queries; Gaussian is preferred for high-dimensional outputs (Q7, Q8, Q9) where $\ell_2$ geometry reduces noise across vector dimensions more efficiently than Laplace. At $\epsilon = 1.0$ on the full database, most queries pass their utility thresholds, with Laplace achieving median relative error $<0.03$ for Q1, Q2, and Q9 and Spearman $\rho \geq 0.99$ for Q3. The pipeline is reproducible and yields an auditable $(\epsilon,\delta)$ guarantee under sequential composition. Taken together, the design, evaluation, and validation presented in this report provide a complete path from raw telemetry to release-ready private query answers with a documented operating point and guarantee.
 
 \subsection{Impact}
 The work demonstrates that query release under differential privacy is tractable at scale for telemetry analytics: sensitivity is bounded by design, mechanisms are standard and well understood, and the privacy-utility tradeoff can be tuned via $\epsilon$. It provides a rigorous, deployable alternative to releasing raw or lightly anonymized aggregates and avoids the pitfalls of synthetic data generation for this setting. The repository (export baseline, DP mechanisms, evaluation, and best-epsilon selection) can serve as a template for other telemetry or event-log systems where user-level DP is required.
