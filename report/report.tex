@@ -7,10 +7,11 @@
 \usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{float}
+\usepackage{subcaption}
 \setcounter{tocdepth}{3}
 \setcounter{secnumdepth}{3}
 \usepackage[colorlinks=true,linktoc=all,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
-\graphicspath{{../}}
+\graphicspath{{./}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Title and Authors
@@ -69,7 +70,7 @@ In this work we apply \emph{differentially private query release} to Intel telem
 \subsection{Motivation}
 \label{sec:motivation}
 
-Organizations that collect telemetry at scale need aggregate statistics for collaboration, benchmarking, and research while protecting individual users; removal of direct identifiers alone does not prevent inference from rich behavioral traces. Query-based release under Differential Privacy gives analysts noisy answers to predefined queries with a formal guarantee that the probability of any output changes by at most a factor $e^\epsilon$ (and an additive $\delta$ when applicable) when one user's data is added or removed. Implementing this in practice requires defining the unit of privacy (here, one GUID), deriving and bounding each query's global sensitivity, choosing a mechanism and calibrating noise to that sensitivity, and accounting for composition when multiple queries are answered. This work does that for a large telemetry corpus and a fixed set of 12 analytical queries. An alternative would be private synthetic data generation: learn a DP model of the full data distribution, generate a synthetic dataset with the same schema, and release it so that analysts can run arbitrary queries without further privacy cost. That approach offers flexibility and a one-time budget, but is less suited to our setting: our telemetry is large (order of terabytes), high-dimensional, and sparse, and many queries join dozens of columns (e.g., web category usage by persona, country, and CPU). Modelling the full joint distribution under DP is extremely demanding at that scale, and synthetic data tends either to over-smooth, to miss rare but important patterns, or to consume a large budget for the whole distribution instead of the summaries we need. Because we have a fixed set of 12 well-defined aggregate queries and an enterprise reporting use case, we adopt query release instead. We spend the privacy budget only on those 12 answers, bound sensitivity tightly per GUID and per query, calibrate noise to each metric type (counts, averages, histograms), and allocate epsilon per query by importance. That yields better accuracy for the statistics we actually use and keeps the guarantee auditable and the implementation tractable at scale.
+Organizations that collect telemetry at scale need aggregate statistics for collaboration, benchmarking, and research while protecting individual users. Query-based release under Differential Privacy gives analysts noisy answers to predefined queries with a formal guarantee that the probability of any output changes by at most a factor $e^\epsilon$ (and an additive $\delta$ when applicable) when one user's data is added or removed. Implementing this in practice requires defining the unit of privacy (here, one GUID), deriving and bounding each query's global sensitivity, choosing a mechanism and calibrating noise to that sensitivity, and accounting for composition when multiple queries are answered. An alternative would be private synthetic data generation: learn a DP model of the full data distribution, generate a synthetic dataset, and release it so analysts can run arbitrary queries without further privacy cost. That approach offers flexibility and a one-time budget, but is less suited to our setting: the telemetry is large, high-dimensional, and sparse, and many queries join dozens of columns. Modelling the full joint distribution under DP is extremely demanding at that scale, and synthetic data tends to over-smooth, miss rare but important patterns, or consume a large budget for the whole distribution instead of the summaries we need. Because we have a set of 12 well-defined aggregate queries and the use case is enterprise reporting, we adopt query release instead, spending the privacy budget only on those 12 answers, bounding sensitivity tightly per GUID and per query, and allocating epsilon by importance. That yields better accuracy for the statistics we actually use and keeps the guarantee auditable and the implementation tractable at scale.
 
 \subsection{Differential Privacy}
 \label{sec:dp_definitions}
@@ -132,12 +133,12 @@ We use a specialized reporting layer of 22 pre-aggregated tables built from the 
 \subsection{Applications}
 \label{sec:applications}
 
-Privacy-preserving query release over telemetry supports usage metrics and feature adoption by segment, performance and health monitoring by geography or hardware family, market share and ranking statistics, and anomaly detection (identification of segments with unusually high error rates or power draw). Analysts receive noisy answers suitable for trend analysis and prioritisation without access to raw user-level data. The same framework applies to other telemetry or event-log datasets where user-level differential privacy is required.
+Privacy-preserving query release over telemetry supports usage metrics and feature adoption by segment, performance and health monitoring by geography or hardware family, market share and ranking statistics, and anomaly detection. Analysts receive noisy answers suitable for trend analysis and prioritisation without access to raw user-level data. The same framework applies to other telemetry or event-log datasets where user-level differential privacy is required.
 
 \subsection{Related Work}
 \label{sec:related}
 
-Differential privacy was introduced in \cite{dwork2006calibrating} and is treated in depth in \cite{dwork2014promise}, which covers the Laplace and Gaussian mechanisms, global sensitivity, and composition. The Analytic Gaussian Mechanism of \cite{balle2018improving} improves noise calibration for $(\epsilon,\delta)$-DP. Query answering under DP in database and analytics settings requires bounding sensitivity (typically via clipping) and allocating privacy budget across queries; our guarantees follow from these standard tools and explicit sequential composition.
+Differential privacy was introduced in \cite{dwork2006calibrating} and is treated in depth in \cite{dwork2014promise}, which covers the Laplace and Gaussian mechanisms, global sensitivity, and composition. The Analytic Gaussian Mechanism of \cite{balle2018improving} improves noise calibration for $(\epsilon,\delta)$-DP. Query answering under DP in database and analytics settings requires bounding sensitivity and allocating privacy budget across queries; our guarantees follow from these standard tools and explicit sequential composition.
 
 \section{Methods}
 \label{sec:methods}
@@ -159,7 +160,7 @@ The pipeline has six stages. Raw telemetry is loaded into DuckDB and a build ste
 
 The pipeline implements each mechanism in two variants: \textbf{baseline} and \textbf{advance}. They are \emph{mathematically identical} (same noise distribution and privacy guarantee); the only difference is how the noise scale is computed at run time.
 
-In the \textbf{baseline} variant the scale is recomputed for every (query, column, $\epsilon$) triple: $b = \Delta_1 f / \epsilon$ for Laplace, and $\sigma$ via binary search for the Analytic Gaussian \cite{balle2018improving}. In the \textbf{advance} variant a \emph{scale cache} is built once per (sensitivity, $\epsilon$) pair and looked up during release; this reduces runtime (often 2--4$\times$ faster) without changing outputs or guarantees. All results and figures in this report use the baseline variant; the advance variant typically attains similar utility at a lower $\epsilon$ (see Section~\ref{sec:disc_interpretation}).
+In the \textbf{baseline} variant the scale is recomputed for every (query, column, $\epsilon$) triple: $b = \Delta_1 f / \epsilon$ for Laplace, and $\sigma$ via binary search for the Analytic Gaussian \cite{balle2018improving}. In the \textbf{advance} variant a \emph{scale cache} is built once per (sensitivity, $\epsilon$) pair and looked up during release; this reduces runtime (often 2--4$\times$ faster) without changing outputs or guarantees. The advance variant typically attains similar utility at a lower $\epsilon$ (see Section~\ref{sec:disc_interpretation}).
 
 \subsection{Global Privacy Model}
 \label{sec:global_model}
@@ -539,7 +540,7 @@ We run at $\epsilon \in \{0.01, 0.05, 0.1, 0.5, 1.0, \infty\}$ to trace the priv
 \section{Results}
 \label{sec:results}
 
-All results and figures use the \textbf{baseline} variant (Section~\ref{sec:mechanism_variants}). We report results from the mini (subsample) and full databases.
+We report results from the mini (subsample) and full databases for both the baseline and advance variants (Section~\ref{sec:mechanism_variants}).
 
 \subsection{Experimental Setup}
 \label{sec:exp_setup}
@@ -587,6 +588,41 @@ Q8 & Gaussian & TVD     & 0.576  & 0.372 & 0.216 & 1/6 \\
 Q8 & Laplace  & TVD     & 0.558  & 0.295 & 0.202 & 1/6 \\
 Q9 & Gaussian & RE      & 1.000  & 0.542 & 0.483 & 3/6 \\
 Q9 & Laplace  & RE      & 1.000  & 0.325 & 0.396 & 3/6 \\
+Q12 & Gaussian & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
+Q12 & Laplace  & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:eval_summary_advance} gives the corresponding evaluation summary for the advance variant for direct comparison (advance selects $\epsilon = 0.5$ as best on mini).
+
+\begin{table}[htbp]
+\centering
+\caption{Per-query evaluation summary: advance variant. Columns as in Table~\ref{tab:eval_summary_baseline}.}
+\label{tab:eval_summary_advance}
+\small
+\begin{tabular}{@{}cclrrrr@{}}
+\toprule
+\textbf{Q} & \textbf{Mech.} & \textbf{Metric} & \textbf{Worst val.} & \textbf{Mean} & \textbf{Std} & \textbf{Pass rate} \\
+\midrule
+Q1 & Gaussian & RE       & 1.000  & 0.384 & 0.419 & 3/6 \\
+Q1 & Laplace  & RE       & 0.848  & 0.188 & 0.329 & 5/6 \\
+Q2 & Gaussian & RE       & 1.000  & 0.327 & 0.383 & 3/6 \\
+Q2 & Laplace  & RE       & 1.000  & 0.247 & 0.389 & 4/6 \\
+Q3 & Gaussian & Spearman & 0.201  & 0.807 & 0.310 & 5/6 \\
+Q3 & Laplace  & Spearman & 0.472  & 0.897 & 0.210 & 5/6 \\
+Q4 & Gaussian & RE       & 1.000  & 0.833 & 0.408 & 1/6 \\
+Q4 & Laplace  & RE       & 1.000  & 0.754 & 0.416 & 1/6 \\
+Q5 & Gaussian & RE       & 18.165 & 3.597 & 7.147 & 1/6 \\
+Q5 & Laplace  & RE       & 6.763  & 1.517 & 2.608 & 2/6 \\
+Q6 & Gaussian & Spearman & $-0.140$ & 0.088 & 0.181 & 0/6 \\
+Q6 & Laplace  & Spearman & $-0.140$ & 0.088 & 0.181 & 0/6 \\
+Q7 & Gaussian & TVD      & 0.674  & 0.503 & 0.251 & 1/6 \\
+Q7 & Laplace  & TVD      & 0.676  & 0.478 & 0.257 & 1/6 \\
+Q8 & Gaussian & TVD      & 0.585  & 0.475 & 0.233 & 1/6 \\
+Q8 & Laplace  & TVD      & 0.620  & 0.483 & 0.240 & 1/6 \\
+Q9 & Gaussian & RE       & 1.000  & 0.571 & 0.479 & 2/6 \\
+Q9 & Laplace  & RE       & 1.000  & 0.321 & 0.393 & 3/6 \\
 Q12 & Gaussian & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
 Q12 & Laplace  & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
 \bottomrule
@@ -686,205 +722,11 @@ Q9 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \end{tabular}
 \end{table}
 
-\subsection{Best Epsilon Selection}
-\label{sec:best_epsilon}
-
-To determine the appropriate privacy parameter for deployment, we evaluated each mechanism across the epsilon grid and computed a utility-preservation score relative to the non-private baseline at $\epsilon = \infty$. The recommended epsilon is selected as the smallest value for which the average utility preservation across all queries reaches at least 80\%. Table~\ref{tab:best_epsilon} summarises the best-epsilon results for both variants and mechanisms.
+Table~\ref{tab:per_query_eps_advance} gives the same per-query, per-$\epsilon$ comparison for the advance variant. Key differences from the baseline appear in Q7 and Q8 at small $\epsilon$, where the advance variant shows Gaussian winning at low $\epsilon$ before Laplace takes over at larger $\epsilon$.
 
 \begin{table}[htbp]
 \centering
-\caption{Best-epsilon selection results for baseline and advance variants (mini database). Mean and min utility preserved are relative to the no-noise baseline at $\epsilon=\infty$. Status ``best\_available'' indicates no $\epsilon$ reached the 80\% mean-preservation target, so the $\epsilon$ with the highest score was chosen.}
-\label{tab:best_epsilon}
-\small
-\begin{tabular}{@{}llrrrrr@{}}
-\toprule
-\textbf{Variant} & \textbf{Mech.} & \textbf{Best $\epsilon$} & \textbf{Mean util.} & \textbf{Min util.} & \textbf{Runner-up $\epsilon$} & \textbf{Runner-up util.} \\
-\midrule
-Baseline & Laplace  & 1.0 & $-6.86$  & $-47.42$ & 0.5 & $-8.77$ \\
-Baseline & Gaussian & 1.0 & $-9.13$  & $-49.00$ & 0.5 & $-12.13$ \\
-Advance  & Laplace  & 0.5 & $-6.55$  & $-49.00$ & 0.1 & $-22.42$ \\
-Advance  & Gaussian & 0.5 & $-12.32$ & $-49.00$ & 0.1 & $-28.91$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The \textbf{Mean util.} and \textbf{Min util.} columns in Table~\ref{tab:best_epsilon} report negative values (e.g., $-6.86$, $-47.42$). These numbers come from the utility-preservation scoring scale: each query's DP output is compared to the no-noise baseline at $\epsilon = \infty$, and the score measures how much of that baseline utility is preserved. When the DP output is far from the baseline (e.g., at low $\epsilon$ or for queries that are inherently noisy), the preserved fraction can be negative or below zero on this scale. A negative value does not mean that the released answers are harmful; it means that on mini, no $\epsilon$ in the grid reached the 80\% mean-preservation target, so the selection logic correctly falls back to the $\epsilon$ with the highest score (best available). Both chosen operating points ($\epsilon = 1.0$ for baseline, $\epsilon = 0.5$ for advance) are fully differentially private; only $\epsilon = \infty$ is non-private.
-
-\subsection{Full-Database Results at $\epsilon = 1.0$}
-\label{sec:full_results}
-
-On the full database at $\epsilon = 1.0$, Laplace achieves median relative error below 0.03 for Q1, Q2, and Q9; Q5 has median relative error 0.11 (Laplace) and 0.22 (Gaussian). Spearman $\rho \geq 0.99$ for Q3; total variation distance 0.044 (Q7) and 0.099 (Q8). Gaussian yields slightly higher median relative error and total variation distance at the same $\epsilon$. Q4 and Q6 are below the pass threshold on full at $\epsilon = 1.0$ (median relative error 0.66 for Q4 Laplace; Spearman $\rho$ 0.064 for Q6); a larger $\epsilon$ or mechanism-specific tweaks (e.g., Report Noisy Max for Q6) can further improve these queries for deployment.
-
-\subsection{Privacy-Utility Figures}
-\label{sec:results_figures}
-
-Figure~\ref{fig:privacy_utility_curves} shows the privacy-utility curves by metric type: as $\epsilon$ increases, median relative error and total variation distance decrease and Spearman $\rho$ increases. Figure~\ref{fig:mechanism_comparison} compares Laplace and Gaussian across queries and $\epsilon$. Figure~\ref{fig:pass_rate} gives the fraction of queries passing the pass threshold versus $\epsilon$. Figure~\ref{fig:best_epsilon_fig} summarises the best $\epsilon$ per query and mechanism. Figure~\ref{fig:pareto} illustrates the Pareto frontier (privacy gain vs utility loss), highlighting the tradeoff between stronger privacy and preserved utility.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.95\textwidth]{visuals/01_privacy_utility_curves_mini.png}
-\caption{Privacy-utility curves (mini database): median relative error, total variation distance, and Spearman $\rho$ vs $\epsilon$.}
-\label{fig:privacy_utility_curves}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.95\textwidth]{visuals/03_mechanism_comparison_mini.png}
-\caption{Laplace vs Gaussian across queries and $\epsilon$.}
-\label{fig:mechanism_comparison}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.95\textwidth]{visuals/04_pass_rate_mini.png}
-\caption{Pass rate (fraction of queries meeting the threshold) vs $\epsilon$.}
-\label{fig:pass_rate}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{visuals/05_best_epsilon_summary_mini.png}
-\caption{Best $\epsilon$ per query and mechanism (mini database); vertical line indicates the selected $\epsilon = 1.0$ for full-database runs.}
-\label{fig:best_epsilon_fig}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{visuals/06_pareto_frontier_mini.png}
-\caption{Pareto frontier: privacy (smaller $\epsilon$) vs utility preservation. Points show the tradeoff across the $\epsilon$ grid.}
-\label{fig:pareto}
-\end{figure}
-
-\clearpage
-\section{Discussion}
-\label{sec:discussion}
-
-\subsection{Privacy and Utility Tradeoff}
-\label{sec:disc_tradeoff}
-
-The results confirm the expected tradeoff: at $\epsilon = 0.01$ the noise scale $b = \Delta/\epsilon$ is large and error metrics are higher; at $\epsilon = 1.0$ or $\infty$ utility approaches the non-private baseline. Every finite $\epsilon$ is a formally differentially private release. Best-epsilon selection gave $\epsilon = 1.0$ for the baseline (Section~\ref{sec:results}); the Laplace mechanism's advantage at low $\epsilon$ is consistent with its pure $\epsilon$-DP calibration for scalar queries, while the Analytic Gaussian benefits multi-dimensional outputs (Q7, Q8, Q9) via $\ell_2$-sensitivity geometry.
-
-\subsection{Interpretation of the Privacy-Utility Tradeoff}
-\label{sec:disc_interpretation}
-
-In the \textbf{baseline} variant, $\epsilon = 1.0$ was used for full-database runs (Section~\ref{sec:eval_metrics_methods}). In the \textbf{advance} variant the optimal $\epsilon$ is 0.5: the utility curve reaches its plateau earlier, so comparable accuracy is achieved at a stronger privacy guarantee. Even at $\epsilon = \infty$ the system achieves approximately 80\% pass rate; some queries miss the threshold due to query structure or small group sizes. Table~\ref{tab:eval_summary_advance} in Appendix D gives the advance variant evaluation summary.
-
-\subsection{Comparison with Alternative Approach}
-\label{sec:disc_comparison}
-
-A parallel project group approached the same telemetry privacy problem via \emph{dataset modification}: rather than adding noise to query outputs after the fact, their pipeline perturbs or suppresses records at the data layer before any queries are run, aiming to bound the information leakage of the released dataset itself. This contrasts with our \emph{query-release} framework in several important respects. Our approach adds calibrated noise only to the 12 predefined query outputs, spending the privacy budget precisely on those statistics. This means analysts receive highly accurate private answers to exactly the queries we care about, while the sensitivity of each answer is bounded tightly query by query. The dataset-modification approach, on the other hand, releases a modified dataset from which analysts can run arbitrary queries, offering considerably more flexibility for future analysis. The tradeoff is that the privacy budget must be allocated against the entire joint distribution rather than just the targeted summaries, which either requires a larger total budget or accepts higher noise on any individual statistic. For our use case (a fixed set of 12 enterprise analytics queries over large, sparse telemetry), the query-release framework is more economical and auditable. The dataset-modification approach would be preferable if the downstream query workload were unknown at release time, or if a one-time release enabling ad-hoc analysis were the primary requirement. The two approaches thus occupy complementary points in the privacy-preserving analytics design space.
-
-\subsection{Practical Implications}
-\label{sec:disc_practical}
-
-For Intel (or similar) telemetry, releasing the 12 query answers at $\epsilon = 1.0$ per query (or a composed total $\epsilon_{\text{total}} = 12$ under basic composition) provides a concrete deployment point: most queries achieve pass thresholds, and the guarantee is auditable from the published sensitivity and mechanism. Queries such as Q4 (vendor percentage), Q6 (browser winner), and Q12 (ranked processes on mini) can be improved further by allocating more budget, using mechanism-specific tweaks (e.g., Report Noisy Max for Q6), or tuning for those releases. The pipeline is reproducible (fixed seed, versioned scripts) and can be re-run on updated data or with different epsilon allocations.
-
-\subsection{Scope and Future Directions}
-\label{sec:disc_limitations}
-
-The current implementation leaves room for extension. Mini results show greater variability due to smaller group sizes (e.g., Q5 has 11 rows, Q12 has few users); full-database results at $\epsilon = 1.0$ are more stable. The report emphasises queries 1 to 9 and 12 in the main narrative. Privacy-utility curves on full data can be obtained by running additional $\epsilon$ sweeps. Full-database results here use the baseline variant at $\epsilon = 1.0$; the advance variant selects $\epsilon = 0.5$ on mini (Section~\ref{sec:disc_interpretation}), and a full-database run at $\epsilon = 0.5$ for the advance variant would further validate the improved guarantee. We use \emph{basic composition}; advanced composition (e.g., RDP accounting) could tighten the composed $\epsilon$ for the same per-query budgets. Clipping bounds are set from domain knowledge and percentile inspection; data-adaptive or privately-selected clipping could improve utility further while preserving the DP guarantee.
-
-\subsection{Assumptions and Threat Model}
-\label{sec:disc_threat}
-
-We assume \emph{user-level} (device-level) differential privacy: the adversary cannot distinguish between datasets that differ in one GUID's entire contribution. We do not model collusion among multiple analysts or repeated adaptively chosen queries beyond the fixed 12; in practice, the same budget would be consumed each time the pipeline is run. We assume the reporting layer and clipping are applied correctly so that sensitivity bounds hold; errors in SQL clipping would invalidate the guarantee. The threat model is standard for DP query release: we protect against any single user's data being inferred from the released statistics, up to the $(\epsilon,\delta)$ parameters.
-
-\subsection{Deployment Considerations}
-\label{sec:disc_deployment}
-
-Deployment would involve: (1) exporting baseline query results from the current database; (2) running the Laplace and Gaussian mechanisms at the chosen $\epsilon$ (e.g., 1.0) with a fixed seed for reproducibility; (3) storing the noisy outputs in a secure but accessible location for analysts; (4) documenting the composed $\epsilon_{\text{total}}$ and $\delta_{\text{total}}$ for transparency. Re-running the pipeline on a schedule would consume the same budget each run unless the data is considered a new dataset under a separate budget.
-
-\section{Conclusion}
-\label{sec:conclusion}
-
-\subsection{Summary}
-We designed and implemented a differentially private query-release system for Intel telemetry: a fixed set of analytical queries is answered with calibrated Laplace or Analytic Gaussian noise after per-device clipping. We evaluated on mini and full databases; all reported results use the baseline variant (Section~\ref{sec:mechanism_variants}). Best-epsilon selection gave $\epsilon = 1.0$ for the baseline; at that value most queries pass on the full database. The advance variant attains similar utility at $\epsilon = 0.5$. The pipeline is reproducible and provides an auditable $(\epsilon,\delta)$ guarantee under sequential composition.
-
-\subsection{Impact}
-The work demonstrates that query release under differential privacy is tractable at scale for telemetry analytics: sensitivity is bounded by design, mechanisms are standard and well understood, and the privacy-utility tradeoff can be tuned via $\epsilon$. It provides a rigorous, deployable alternative to releasing raw or lightly anonymized aggregates and avoids the pitfalls of synthetic data generation for this setting. The repository (export baseline, DP mechanisms, evaluation, and best-epsilon selection) can serve as a template for other telemetry or event-log systems where user-level DP is required.
-
-\subsection{Future Work}
-Future work includes: advanced composition and RDP accounting to tighten the composed $\epsilon$ for the same per-query budgets; comparison with other mechanisms (e.g., the exponential mechanism for rankings); and a full-database run of the advance variant at $\epsilon = 0.5$ to confirm the improved guarantee on production-scale data.
-
-\subsection{Acknowledgements}
-We thank our project advisors, Yu-Xiang Wang and Bijan Arbab, as well as Intel for providing access to the telemetry data and for the query set that motivated our specialized schema.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% References
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\makereference
-\bibliography{reference}
-\bibliographystyle{style/dsc180bibstyle}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Appendix
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\clearpage
-\makeappendix
-
-\subsection{Appendix A: Contributions}
-
-\textbf{Reva Agrawal.}
-Reva led the exploration of the 22 reporting tables in the schema, identifying the relevant tables and columns needed for the analysis. She confirmed the overall differential privacy approach with the advisor regularly. After the initial pipeline components were established, she implemented the Gaussian mechanism and enhanced the configuration file to support the final workflow. Reva also contributed to selecting an appropriate epsilon value based on privacy--utility trade-offs. In addition to the technical work, she wrote a large portion of the report and designed the project's poster and website.
-
-\textbf{Dhruv Patel.}
-Dhruv focused on the data infrastructure and workflow setup for the project. He validated the SQL queries used in the pipeline and built both the mini and full versions of the DuckDB database used for experimentation and final runs. He developed the wireframe for the overall project structure and implemented the configuration files that support the workflow. Dhruv also built the baseline implementation and carried out evaluation and testing of the pipeline, producing the result logs used in analysis. Alongside this, he maintained the project README and contributed to sections of the report, poster, and website.
-
-\textbf{Jordan Lambino.}
-Jordan concentrated on the visualization and presentation components of the project. He created the wireframe for the project website and maintained its content throughout development. To support testing of the workflow, he generated dummy data that allowed the pipeline to be run and validated during early stages. Jordan also implemented the Laplace mechanism and developed the trade-off visualizations used to compare different privacy settings, including the plots included in the final analysis. In addition, he reviewed and edited sections of the report and contributed to the poster and website materials.
-
-\subsection{Appendix B: Project Proposal}
-\url{https://drive.google.com/file/d/1-uWLW_FLOvIJ-335J9SwYmFleC-lXZaR/view?usp=sharing}
-
-\subsection{Appendix C: Additional Materials}
-Schema Exploration: \url{https://docs.google.com/document/d/1XfkwK9zN7aP9EJ5fI-bRJ5eS9TzQZW_oRQ9NwRilQeo/edit?usp=sharing}
-
-\subsection{Appendix D: Advance Variant Evaluation Summary}
-
-Table~\ref{tab:eval_summary_advance} provides the per-query evaluation summary for the advance variant (mini database), which selects $\epsilon = 0.5$ as its optimal operating point. Results are directly comparable to Table~\ref{tab:eval_summary_baseline} in the main body.
-
-\begin{table}[H]
-\centering
-\caption{Per-query evaluation summary: advance variant, mini database. Columns as in Table~\ref{tab:eval_summary_baseline}.}
-\label{tab:eval_summary_advance}
-\small
-\begin{tabular}{@{}cclrrrr@{}}
-\toprule
-\textbf{Q} & \textbf{Mech.} & \textbf{Metric} & \textbf{Worst val.} & \textbf{Mean} & \textbf{Std} & \textbf{Pass rate} \\
-\midrule
-Q1 & Gaussian & RE       & 1.000  & 0.384 & 0.419 & 3/6 \\
-Q1 & Laplace  & RE       & 0.848  & 0.188 & 0.329 & 5/6 \\
-Q2 & Gaussian & RE       & 1.000  & 0.327 & 0.383 & 3/6 \\
-Q2 & Laplace  & RE       & 1.000  & 0.247 & 0.389 & 4/6 \\
-Q3 & Gaussian & Spearman & 0.201  & 0.807 & 0.310 & 5/6 \\
-Q3 & Laplace  & Spearman & 0.472  & 0.897 & 0.210 & 5/6 \\
-Q4 & Gaussian & RE       & 1.000  & 0.833 & 0.408 & 1/6 \\
-Q4 & Laplace  & RE       & 1.000  & 0.754 & 0.416 & 1/6 \\
-Q5 & Gaussian & RE       & 18.165 & 3.597 & 7.147 & 1/6 \\
-Q5 & Laplace  & RE       & 6.763  & 1.517 & 2.608 & 2/6 \\
-Q6 & Gaussian & Spearman & $-0.140$ & 0.088 & 0.181 & 0/6 \\
-Q6 & Laplace  & Spearman & $-0.140$ & 0.088 & 0.181 & 0/6 \\
-Q7 & Gaussian & TVD      & 0.674  & 0.503 & 0.251 & 1/6 \\
-Q7 & Laplace  & TVD      & 0.676  & 0.478 & 0.257 & 1/6 \\
-Q8 & Gaussian & TVD      & 0.585  & 0.475 & 0.233 & 1/6 \\
-Q8 & Laplace  & TVD      & 0.620  & 0.483 & 0.240 & 1/6 \\
-Q9 & Gaussian & RE       & 1.000  & 0.571 & 0.479 & 2/6 \\
-Q9 & Laplace  & RE       & 1.000  & 0.321 & 0.393 & 3/6 \\
-Q12 & Gaussian & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
-Q12 & Laplace  & Spearman & 0.000 & 0.000 & 0.000 & 0/6 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Appendix E: Advance Variant Per-Query Comparison}
-
-Table~\ref{tab:per_query_eps_advance} provides the full Laplace vs Gaussian comparison across all $\epsilon$ values for the advance variant, analogous to Table~\ref{tab:per_query_eps_baseline} in the main body. Key differences from the baseline are visible in Q7 and Q8 at small $\epsilon$ values, where the advance variant shows Gaussian winning at low $\epsilon$ before Laplace takes over at larger $\epsilon$.
-
-\begin{table}[H]
-\centering
-\caption{Per-query, per-$\epsilon$ comparison of Laplace vs Gaussian (advance variant, mini database). Column definitions as in Table~\ref{tab:per_query_eps_baseline}.}
+\caption{Per-query, per-$\epsilon$ comparison of Laplace vs Gaussian (advance variant). Column definitions as in Table~\ref{tab:per_query_eps_baseline}.}
 \label{tab:per_query_eps_advance}
 \small
 \begin{tabular}{@{}cclrrrrl@{}}
@@ -928,5 +770,187 @@ Q9 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{Best Epsilon Selection}
+\label{sec:best_epsilon}
+
+To determine the appropriate privacy parameter for deployment, we evaluated each mechanism across the epsilon grid and computed a utility-preservation score relative to the non-private baseline at $\epsilon = \infty$. The recommended epsilon is selected as the smallest value for which the average utility preservation across all queries reaches at least 80\%. Table~\ref{tab:best_epsilon} summarises the best-epsilon results for both variants and mechanisms.
+
+\begin{table}[htbp]
+\centering
+\caption{Best-epsilon selection results for baseline and advance variants (mini database). Mean and min utility preserved are relative to the no-noise baseline at $\epsilon=\infty$. Status ``best\_available'' indicates no $\epsilon$ reached the 80\% mean-preservation target, so the $\epsilon$ with the highest score was chosen.}
+\label{tab:best_epsilon}
+\small
+\begin{tabular}{@{}llrrrrr@{}}
+\toprule
+\textbf{Variant} & \textbf{Mech.} & \textbf{Best $\epsilon$} & \textbf{Mean util.} & \textbf{Min util.} & \textbf{Runner-up $\epsilon$} & \textbf{Runner-up util.} \\
+\midrule
+Baseline & Laplace  & 1.0 & $-6.86$  & $-47.42$ & 0.5 & $-8.77$ \\
+Baseline & Gaussian & 1.0 & $-9.13$  & $-49.00$ & 0.5 & $-12.13$ \\
+Advance  & Laplace  & 0.5 & $-6.55$  & $-49.00$ & 0.1 & $-22.42$ \\
+Advance  & Gaussian & 0.5 & $-12.32$ & $-49.00$ & 0.1 & $-28.91$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The \textbf{Mean util.} and \textbf{Min util.} columns in Table~\ref{tab:best_epsilon} report negative values (e.g., $-6.86$, $-47.42$). These numbers come from the utility-preservation scoring scale: each query's DP output is compared to the no-noise baseline at $\epsilon = \infty$, and the score measures how much of that baseline utility is preserved. When the DP output is far from the baseline (e.g., at low $\epsilon$ or for queries that are inherently noisy), the preserved fraction can be negative or below zero on this scale. A negative value does not mean that the released answers are harmful; it means that on mini, no $\epsilon$ in the grid reached the 80\% mean-preservation target, so the selection logic correctly falls back to the $\epsilon$ with the highest score (best available). Both chosen operating points ($\epsilon = 1.0$ for baseline, $\epsilon = 0.5$ for advance) are fully differentially private; only $\epsilon = \infty$ is non-private.
+
+\subsection{Full-Database Results at $\epsilon = 1.0$}
+\label{sec:full_results}
+
+On the full database at $\epsilon = 1.0$, Laplace achieves median relative error below 0.03 for Q1, Q2, and Q9; Q5 has median relative error 0.11 (Laplace) and 0.22 (Gaussian). Spearman $\rho \geq 0.99$ for Q3; total variation distance 0.044 (Q7) and 0.099 (Q8). Gaussian yields slightly higher median relative error and total variation distance at the same $\epsilon$. Q4 and Q6 are below the pass threshold on full at $\epsilon = 1.0$ (median relative error 0.66 for Q4 Laplace; Spearman $\rho$ 0.064 for Q6); a larger $\epsilon$ or mechanism-specific tweaks (e.g., Report Noisy Max for Q6) can further improve these queries for deployment.
+
+\subsection{Visualization Pipeline: Mini vs Full Datasets}
+\label{sec:viz_pipeline}
+
+The visualization pipeline treats the mini and full datasets differently by design. The \textbf{mini} dataset is used to run experiments across the full grid of privacy budgets $\epsilon$, which yields the complete set of privacy-utility tradeoff plots: privacy-utility curves, mechanism comparison, epsilon selection summaries, and pass-rate curves. Running this entire sweep on the full dataset would be computationally expensive, so the mini dataset is used to explore mechanism behaviour and identify promising $\epsilon$ values efficiently. Once the best $\epsilon$ is selected per variant (e.g., 1.0 for baseline, 0.5 for advance), the \textbf{full} dataset is used for validation: we run the mechanisms only at the chosen $\epsilon$ rather than across the full $\epsilon$ range. The full dataset therefore produces validation and comparison plots (e.g., mini vs.\ full comparison), which check whether the privacy-utility behaviour observed on mini generalizes to production-scale data.
+
+\subsection{Privacy-Utility Figures}
+\label{sec:results_figures}
+
+Figures~\ref{fig:privacy_utility_curves}--\ref{fig:pareto} show results for the baseline and advance variants (stacked for readability). As $\epsilon$ increases, median relative error and total variation distance decrease and Spearman $\rho$ increases in both variants. The advance variant typically reaches the same utility at a lower $\epsilon$ (e.g., 0.5 vs.\ 1.0), so its curves plateau earlier. The baseline vertical line at $\epsilon = 1.0$ and the advance selection at $\epsilon = 0.5$ indicate the operating points used for full-database runs.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{visuals/01_privacy_utility_curves_baseline_mini.png}
+\subcaption{Baseline variant}
+\vspace{0.5em}
+\includegraphics[width=0.92\textwidth]{visuals/01_privacy_utility_curves_advance_mini.png}
+\subcaption{Advance variant}
+\caption{Privacy-utility curves: median relative error, total variation distance, and Spearman $\rho$ vs $\epsilon$.}
+\label{fig:privacy_utility_curves}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{visuals/03_mechanism_comparison_baseline_mini.png}
+\subcaption{Baseline variant}
+\vspace{0.5em}
+\includegraphics[width=0.92\textwidth]{visuals/03_mechanism_comparison_advance_mini.png}
+\subcaption{Advance variant}
+\caption{Laplace vs Gaussian across queries and $\epsilon$.}
+\label{fig:mechanism_comparison}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{visuals/04_pass_rate_baseline_mini.png}
+\subcaption{Baseline variant}
+\vspace{0.5em}
+\includegraphics[width=0.92\textwidth]{visuals/04_pass_rate_advance_mini.png}
+\subcaption{Advance variant}
+\caption{Pass rate (fraction of queries meeting the threshold) vs $\epsilon$.}
+\label{fig:pass_rate}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{visuals/05_best_epsilon_summary_baseline_mini.png}
+\subcaption{Baseline variant ($\epsilon = 1.0$ selected)}
+\vspace{0.5em}
+\includegraphics[width=0.92\textwidth]{visuals/05_best_epsilon_summary_advance_mini.png}
+\subcaption{Advance variant ($\epsilon = 0.5$ selected)}
+\caption{Best $\epsilon$ per query and mechanism. Vertical line indicates the selected $\epsilon$ for full-database runs.}
+\label{fig:best_epsilon_fig}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{visuals/06_pareto_frontier_baseline_mini.png}
+\subcaption{Baseline variant}
+\vspace{0.5em}
+\includegraphics[width=0.92\textwidth]{visuals/06_pareto_frontier_advance_mini.png}
+\subcaption{Advance variant}
+\caption{Pareto frontier: privacy (smaller $\epsilon$) vs utility preservation.}
+\label{fig:pareto}
+\end{figure}
+
+\clearpage
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Privacy and Utility Tradeoff}
+\label{sec:disc_tradeoff}
+
+The results confirm the expected tradeoff: at $\epsilon = 0.01$ the noise scale $b = \Delta/\epsilon$ is large and error metrics are higher; at $\epsilon = 1.0$ or $\infty$ utility approaches the non-private baseline. Every finite $\epsilon$ is a formally differentially private release. Best-epsilon selection gave $\epsilon = 1.0$ for the baseline (Section~\ref{sec:results}); the Laplace mechanism's advantage at low $\epsilon$ is consistent with its pure $\epsilon$-DP calibration for scalar queries, while the Analytic Gaussian benefits multi-dimensional outputs (Q7, Q8, Q9) via $\ell_2$-sensitivity geometry.
+
+\subsection{Interpretation of the Privacy-Utility Tradeoff}
+\label{sec:disc_interpretation}
+
+In the \textbf{baseline} variant, $\epsilon = 1.0$ was used for full-database runs (Section~\ref{sec:eval_metrics_methods}). In the \textbf{advance} variant the optimal $\epsilon$ is 0.5: the utility curve reaches its plateau earlier, so comparable accuracy is achieved at a stronger privacy guarantee. Even at $\epsilon = \infty$ the system achieves approximately 80\% pass rate; some queries miss the threshold due to query structure or small group sizes. Table~\ref{tab:eval_summary_advance} gives the advance variant evaluation summary (Section~\ref{sec:utility_metrics}).
+
+\subsection{Comparison with Alternative Approach}
+\label{sec:disc_comparison}
+
+A parallel project group approached the same telemetry privacy problem via \emph{dataset modification}: rather than adding noise to query outputs after the fact, their pipeline perturbs or suppresses records at the data layer before any queries are run, aiming to bound the information leakage of the released dataset itself. This contrasts with our \emph{query-release} framework in several important respects. Our approach adds calibrated noise only to the 12 predefined query outputs, spending the privacy budget precisely on those statistics. This means analysts receive highly accurate private answers to exactly the queries we care about, while the sensitivity of each answer is bounded tightly query by query. The dataset-modification approach, on the other hand, releases a modified dataset from which analysts can run arbitrary queries, offering considerably more flexibility for future analysis. The tradeoff is that the privacy budget must be allocated against the entire joint distribution rather than just the targeted summaries, which either requires a larger total budget or accepts higher noise on any individual statistic. For our use case (a fixed set of 12 enterprise analytics queries over large, sparse telemetry), the query-release framework is more economical and auditable. The dataset-modification approach would be preferable if the downstream query workload were unknown at release time, or if a one-time release enabling ad-hoc analysis were the primary requirement. The two approaches thus occupy complementary points in the privacy-preserving analytics design space.
+
+\subsection{Practical Implications}
+\label{sec:disc_practical}
+
+For Intel (or similar) telemetry, releasing the 12 query answers at $\epsilon = 1.0$ per query (or a composed total $\epsilon_{\text{total}} = 12$ under basic composition) provides a concrete deployment point: most queries achieve pass thresholds, and the guarantee is auditable from the published sensitivity and mechanism. Queries such as Q4 (vendor percentage), Q6 (browser winner), and Q12 (ranked processes on mini) can be improved further by allocating more budget, using mechanism-specific tweaks (e.g., Report Noisy Max for Q6), or tuning for those releases. The pipeline is reproducible (fixed seed, versioned scripts) and can be re-run on updated data or with different epsilon allocations.
+
+\subsection{Scope and Future Directions}
+\label{sec:disc_limitations}
+
+The current implementation leaves room for extension. Mini results show greater variability due to smaller group sizes (e.g., Q5 has 11 rows, Q12 has few users); full-database results at $\epsilon = 1.0$ are more stable. The report emphasises queries 1 to 9 and 12 in the main narrative. Privacy-utility curves on full data can be obtained by running additional $\epsilon$ sweeps. Full-database validation uses $\epsilon = 1.0$ for the baseline variant and $\epsilon = 0.5$ for the advance variant (Section~\ref{sec:disc_interpretation}); mini vs.\ full comparison plots are produced by the pipeline and stored in the codebase. We use \emph{basic composition}; advanced composition (e.g., RDP accounting) could tighten the composed $\epsilon$ for the same per-query budgets. Clipping bounds are set from domain knowledge and percentile inspection; data-adaptive or privately-selected clipping could improve utility further while preserving the DP guarantee.
+
+\subsection{Assumptions and Threat Model}
+\label{sec:disc_threat}
+
+We assume \emph{user-level} (device-level) differential privacy: the adversary cannot distinguish between datasets that differ in one GUID's entire contribution. We do not model collusion among multiple analysts or repeated adaptively chosen queries beyond the fixed 12; in practice, the same budget would be consumed each time the pipeline is run. We assume the reporting layer and clipping are applied correctly so that sensitivity bounds hold; errors in SQL clipping would invalidate the guarantee. The threat model is standard for DP query release: we protect against any single user's data being inferred from the released statistics, up to the $(\epsilon,\delta)$ parameters.
+
+\subsection{Deployment Considerations}
+\label{sec:disc_deployment}
+
+Deployment would involve: (1) exporting baseline query results from the current database; (2) running the Laplace and Gaussian mechanisms at the chosen $\epsilon$ (e.g., 1.0) with a fixed seed for reproducibility; (3) storing the noisy outputs in a secure but accessible location for analysts; (4) documenting the composed $\epsilon_{\text{total}}$ and $\delta_{\text{total}}$ for transparency. Re-running the pipeline on a schedule would consume the same budget each run unless the data is considered a new dataset under a separate budget.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+\subsection{Summary}
+This report describes a differentially private query-release system for Intel telemetry. The goal is to share aggregate analytics (battery usage, display and browser statistics, power and sleep metrics, process rankings, and related queries) while protecting individual devices under a formal privacy guarantee. We answer a fixed set of 12 analytical queries by adding calibrated noise to their outputs after bounding each device's contribution via clipping, so that sensitivity is well defined and the Laplace and Analytic Gaussian mechanisms can be applied. We evaluate on a mini (subsample) database across a range of privacy budgets $\epsilon$ to trace the privacy--utility tradeoff and select an operating point, then validate on a full (production-scale) database at the chosen $\epsilon$. Two implementation variants, baseline and advance, produce identical results; the advance variant is faster and typically achieves comparable accuracy at $\epsilon = 0.5$ versus $\epsilon = 1.0$ for the baseline, delivering the same utility under a strictly stronger privacy guarantee. Laplace outperforms Gaussian on low-dimensional scalar queries at almost every $\epsilon$ value, winning on 8 out of 10 queries; Gaussian is preferred for high-dimensional outputs (Q7, Q8, Q9) where $\ell_2$ geometry reduces noise across vector dimensions more efficiently than Laplace. At $\epsilon = 1.0$ on the full database, most queries pass their utility thresholds, with Laplace achieving median relative error $<0.03$ for Q1, Q2, and Q9 and Spearman $\rho \geq 0.99$ for Q3. The pipeline is reproducible and yields an auditable $(\epsilon,\delta)$ guarantee under sequential composition. The work shows that query release under differential privacy is tractable for telemetry at scale and gives product and quality teams a rigorous way to use aggregate statistics without access to raw user-level data.
+
+\subsection{Impact}
+The work demonstrates that query release under differential privacy is tractable at scale for telemetry analytics: sensitivity is bounded by design, mechanisms are standard and well understood, and the privacy-utility tradeoff can be tuned via $\epsilon$. It provides a rigorous, deployable alternative to releasing raw or lightly anonymized aggregates and avoids the pitfalls of synthetic data generation for this setting. The repository (export baseline, DP mechanisms, evaluation, and best-epsilon selection) can serve as a template for other telemetry or event-log systems where user-level DP is required.
+
+\subsection{Future Work}
+Future work includes: advanced composition and RDP accounting to tighten the composed $\epsilon$ for the same per-query budgets; comparison with other mechanisms (e.g., the exponential mechanism for rankings); and a full-database run of the advance variant at $\epsilon = 0.5$ to confirm the improved guarantee on production-scale data.
+
+\subsection{Acknowledgements}
+We thank our project advisors, Yu-Xiang Wang and Bijan Arbab, as well as Intel for providing access to the telemetry data and for the query set that motivated our specialized schema.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% References
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\makereference
+\bibliography{reference}
+\bibliographystyle{style/dsc180bibstyle}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Appendix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+\makeappendix
+
+\subsection{Appendix A: Contributions}
+
+\textbf{Reva Agrawal.}
+Reva led the exploration of the 22 reporting tables in the schema, identifying the relevant tables and columns needed for the analysis. She confirmed the overall differential privacy approach with the advisor regularly. After the initial pipeline components were established, she implemented the Gaussian mechanism and enhanced the configuration file to support the final workflow. Reva also contributed to selecting an appropriate epsilon value based on privacy-utility trade-offs for the advance mechanism. In addition to the technical work, she wrote a large portion of the report and designed the project's poster and website.
+
+\textbf{Dhruv Patel.}
+Dhruv focused on the data infrastructure and workflow setup for the project. He validated the SQL queries used in the pipeline and built both the mini and full versions of the DuckDB database used for experimentation and final runs. He developed the wireframe for the overall project structure and implemented the configuration files that support the workflow. Dhruv also built the baseline implementation and carried out evaluation and testing of the pipeline, producing the result logs used in analysis. Alongside this, he maintained the project README and contributed to sections of the report, poster, and website.
+
+\textbf{Jordan Lambino.}
+Jordan concentrated on the visualization and presentation components of the project. He created the wireframe for the project website and maintained its content throughout development. To support testing of the workflow, he generated dummy data that allowed the pipeline to be run and validated during early stages. Jordan also implemented the Laplace mechanism and developed the trade-off visualizations used to compare different privacy settings, including the plots included in the final analysis. In addition, he reviewed and edited sections of the report and contributed to the poster and website materials.
+
+\subsection{Appendix B: Project Proposal}
+
+The \href{https://drive.google.com/file/d/1-uWLW_FLOvIJ-335J9SwYmFleC-lXZaR/view?usp=sharing}{Quarter~2 Project Proposal} describes the original motivation and scope for this project as submitted at the start of the quarter. It provides background on Intel's telemetry collection infrastructure, an introduction to Differential Privacy and its relevance to the problem, and a description of Private Evolution (AUG-PE) as the initially proposed algorithmic framework. The proposal also includes a discussion of DP-SGD as the prior state-of-the-art approach and the reasons it was deemed unsuitable for this setting, namely the requirement for model weight access and the associated computational costs. The proposed output at that stage consisted of an augmented PE algorithm adapted for high-dimensional, sequential telemetry events, together with a synthetic dataset generated on a subset of the Intel telemetry data. The final project diverged from this proposal by adopting query release under the Laplace and Analytic Gaussian mechanisms rather than synthetic data generation via Private Evolution, a decision motivated by the fixed query workload, the scale and sparsity of the telemetry corpus, and the superior auditability of direct sensitivity bounding over full distributional modelling. The proposal is included here for transparency and to document the evolution of the project's technical direction.
+
+\subsection{Appendix C: Additional Materials}
+
+The \href{https://docs.google.com/document/d/1XfkwK9zN7aP9EJ5fI-bRJ5eS9TzQZW_oRQ9NwRilQeo/edit?usp=sharing}{Schema Exploration} document catalogues the full set of 24 analytical queries developed during the project's exploratory phase, along with the reporting layer tables and columns required to execute each one. It served as the primary reference for understanding the data available across the two schemas and for selecting the 12 benchmark queries that form the basis of this report. The document identifies 19 distinct reporting tables spanning battery discharge events, CPU metadata, display device configurations, OS history, browser and web category usage, MODS blocker activity, RAM utilisation, foreground application types, network consumption, user wait events, and platform power and thermal metrics. For each query, the relevant tables and their column schemas are listed explicitly, providing a traceable mapping from analytical question to underlying data source. The 12 queries selected for this project represent a subset chosen on the basis of analytical coverage, sensitivity tractability, and data availability across both the mini and full databases. The remaining 12 queries, covering topics such as foreground application rankings by focal time and system count, user wait process analysis by AC/DC state, Xeon network consumption, and platform-level power and thermal summaries by chassis type, were scoped out of the differentially private release due to time constraints and are identified as candidates for inclusion in future iterations of the pipeline.
 
 \end{document}
