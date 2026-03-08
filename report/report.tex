@@ -507,19 +507,19 @@ Output: (ram\_gb, avg\_percentage\_used) per bin.
 
 \textbf{Source tables:} reporting.system\_mods\_power\_consumption (user\_id, total\_power\_consumption).
 
-\textbf{Research question.} Which user IDs consume the most total CPU power across all processes?
+\textbf{Research question.} Which users contribute the largest total CPU power consumption across all recorded processes?
 
 \textbf{Non-private mathematical expression.} For each user $u$ with $C = 10$ (watts):
 \[
 f(D)_u = \text{clip}\Bigl(\sum_{\text{process}} \text{power\_consumption}_{u,\text{process}}, C\Bigr).
 \]
-Output: ranked list of (user\_id, total\_power\_consumption) by $f(D)_u$ descending. This is a \emph{SUM} query (not an average), so one user's removal changes that user's output by at most $C$.
+Output: ranked list of (user\_id, total\_power\_consumption) by $f(D)_u$ descending. In practice the identifiers would correspond to anonymised device IDs or process categories rather than directly identifiable users. This is a SUM query rather than an average. Removing a single user from the dataset changes only that user's total power value, and the maximum change is bounded by the clipping constant $C$.
 
 \textbf{Sensitivity.} $\Delta = C = 10$ per user (global sensitivity of the sum). Laplace scale $b = \Delta/\epsilon_{12}$ per user. Composition: one vector release over all users; total $\epsilon_{12}$ for the query.
 
 \textbf{Mechanism:} Laplace: add $\text{Lap}(0, \Delta/\epsilon_{12})$ to total\_power\_consumption per user. Single draw. Epsilon: $\epsilon_{12}$ (moderate).
 
-\textbf{Evaluation metric:} Spearman $\rho$ (rank correlation on total\_power\_consumption). On the mini database, $\rho = 0$ across $\epsilon$ is expected: $\Delta = 10$ gives Laplace scale $b = 10/\epsilon$, so at $\epsilon = 1.0$ we have $b = 10$; this is large relative to the spread of total\_power\_consumption values (in $[0,100]$), so the ranking is heavily perturbed.
+\textbf{Evaluation metric:} Spearman $\rho$ (rank correlation on total\_power\_consumption). On the mini database, $\rho = 0$ across $\epsilon$ is expected: the Laplace noise scale is $b = 10$ at $\epsilon = 1.0$, which is large relative to the range of observed total power values (roughly 0--100), so the added noise can substantially change the ordering of users, leading to low Spearman rank correlation.
 
 \textbf{Post-processing:} Clamp $\geq 0$; ranking is deterministic post-processing.
 
@@ -557,11 +557,11 @@ For the Laplace mechanism we use pure $\epsilon$-DP ($\delta = 0$). For the Anal
 
 Utility is measured per query by the metric type assigned in Section~\ref{sec:eval_metrics_methods}: median relative error for queries 1, 2, 4, 5, and 9; total variation distance for queries 7, 8, 10, and 11; Spearman rank correlation for queries 3, 6, and 12. Pass thresholds are median relative error $\leq 0.25$, total variation distance $\leq 0.15$, and Spearman $\rho \geq 0.5$.
 
-Tables~\ref{tab:eval_summary_baseline} and \ref{tab:eval_summary_advance} report the per-query evaluation summary for the baseline and advance variants (advance selects $\epsilon = 0.5$ as best on mini). The worst-value column shows the highest error (or lowest rank correlation) observed at any $\epsilon$; the best-value column shows performance at $\epsilon = \infty$ (no noise). The pass rate column counts how many of the 6 tested $\epsilon$ values (excluding $\infty$) meet the pass threshold.
+Tables~\ref{tab:eval_summary_baseline} and \ref{tab:eval_summary_advance} report the per-query evaluation summary for the baseline and advance variants. The worst-value column shows the highest error (or lowest rank correlation) observed at any $\epsilon$; the best-value column shows performance at $\epsilon = \infty$ (no noise). The pass rate column counts how many of the 6 tested $\epsilon$ values (excluding $\infty$) meet the pass threshold.
 
-Two queries merit a brief note. Q6 (most popular browser per country) uses Report Noisy Max; both Laplace and Gaussian runs apply this same mechanism, so the two table rows correspond to the two pipeline runs. Q12 (ranked processes by power) shows $\rho = 0$ on mini because the Laplace scale $b = \Delta/\epsilon = 10$ at $\epsilon = 1.0$ is large relative to the spread of total power values, so the ranking is heavily perturbed (Section~\ref{sec:q12}).
+Two queries merit a brief note. Q6 (most popular browser per country) uses Report Noisy Max; both Laplace and Gaussian runs apply this same mechanism, so the two table rows correspond to the two pipeline runs. Q12 (ranked processes by power) shows $\rho = 0$ on mini because the Laplace scale $b = 10$ at $\epsilon = 1.0$ is large relative to the range of total power values (roughly 0--100), so the added noise substantially changes the user ordering and yields low Spearman correlation (Section~\ref{sec:q12}).
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Per-query evaluation summary: baseline and advance variants. Worst value at $\epsilon=0.01$; best at $\epsilon=\infty$. Pass rate = fraction of 6 tested $\epsilon$ values meeting the threshold. RE: median relative error ($\leq 0.25$); TVD: total variation distance ($\leq 0.15$); Spearman $\rho$ ($\geq 0.5$).}
 \label{tab:eval_summary_baseline}
@@ -637,7 +637,7 @@ The Laplace mechanism satisfies \emph{pure} $\epsilon$-DP and typically introduc
 
 Table~\ref{tab:lap_vs_gauss} summarises the comparison at $\epsilon = 0.01$ and $\epsilon = 1.0$ on the mini database. At strong privacy ($\epsilon = 0.01$), Laplace consistently matches or outperforms Gaussian: for median-relative-error queries the median relative error is lower under Laplace (e.g., Q1: 0.85 vs 1.0; Q5: 6.76 vs 18.16), and for Spearman-rank-correlation queries Laplace gives higher correlation (e.g., Q3: 0.47 vs 0.20). For total variation distance (Q7, Q8), Laplace again yields lower total variation distance at $\epsilon = 0.01$. At $\epsilon = 1.0$, both mechanisms improve substantially because the noise scale shrinks in proportion to $\epsilon$; Laplace remains slightly better on most scalar queries.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Laplace vs Gaussian on mini database (baseline): metric value at $\epsilon = 0.01$ and $\epsilon = 1.0$. Median relative error and TVD: lower is better; Spearman $\rho$: higher is better. Winner indicated in parentheses.}
 \label{tab:lap_vs_gauss}
@@ -665,7 +665,7 @@ Q12 & Spearman & 0.000 & 0.000  & 0.000 & 0.000 & Tie \\
 Across the $\epsilon$ grid on the mini database we run both the Laplace and the Analytic Gaussian mechanism on each query, so that their privacy--utility tradeoff can be compared directly. Which mechanism gives better utility then depends on both the query and the privacy budget $\epsilon$: the winner can change across the grid, and the advance variant often reaches similar accuracy at a smaller $\epsilon$. Tables~\ref{tab:per_query_eps_baseline} and \ref{tab:per_query_eps_advance} make this comparison explicit by listing, for each of several $\epsilon$ values, the metric value for each mechanism and the winner (L/G/T); the two tables share the same structure so baseline and advance are directly comparable. We show a subset of queries (Q1, Q5, Q7, Q8, Q9, Q10) where the advance advantage is clearest: on median-relative-error queries (Q1, Q5, Q9) the advance curve plateaus earlier, so comparable accuracy is achieved at $\epsilon = 0.5$ rather than $\epsilon = 1.0$; on TVD queries (Q7, Q8, Q10) the advance implementation yields a different mechanism ordering at low $\epsilon$ (Gaussian can win before Laplace takes over at larger $\epsilon$). Queries not shown either fail the pass threshold on mini for both variants (Q6, Q12), show similarly poor utility for both (Q4), or do not exhibit as large a margin of improvement for advance over baseline.
 
 \vspace{0.2em}
-\begin{table}[h]
+\begin{table}[H]
 \centering
 \setlength{\tabcolsep}{1.8pt}
 \renewcommand{\arraystretch}{0.74}
@@ -792,7 +792,7 @@ Q10 & $\infty$ & TVD & 0.000 & 0.000 & 0.000 & T \\
 
 To determine the appropriate privacy parameter for deployment, we evaluated each mechanism across the epsilon grid and computed a utility-preservation score relative to the non-private baseline at $\epsilon = \infty$. The recommended epsilon is selected as the smallest value for which the average utility preservation across all queries reaches at least 80\%. Table~\ref{tab:best_epsilon} summarises the best-epsilon results for both variants and mechanisms.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Best-epsilon selection results for baseline and advance variants (mini database). Mean and min utility preserved are relative to the no-noise baseline at $\epsilon=\infty$. Status ``best\_available'' indicates no $\epsilon$ reached the 80\% mean-preservation target, so the $\epsilon$ with the highest score was chosen.}
 \label{tab:best_epsilon}
