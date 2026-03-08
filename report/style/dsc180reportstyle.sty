@@ -381,11 +381,11 @@
 \newcommand{\tocless}[2]{\bgroup\let\addcontentsline=\nocontentsline#1{#2}\egroup}
 \providecommand{\maketoc}{}
 \renewcommand{\maketoc}{%
-    \par\vspace{2em}%
+    \par\vspace{0.4em}%
     \noindent{\centering\LARGE\bfseries Table of Contents\par}%
-    \vspace{1.5em}%
+    \vspace{0.25em}%
     \etocsettocdepth{2}%
-    \etocsettocstyle{\medskip}{\bigskip}%
+    \etocsettocstyle{\vspace{0pt}}{\vspace{0.25em}}%
     \newlength{\npageW}%
     \settowidth{\npageW}{99}%
     \newlength{\subnumberW}%
@@ -397,13 +397,13 @@
       \hfill\nobreak\makebox[\npageW][r]{\etocpage}\par}%
     \etocsetstyle{section}%
     {}%
-    {\normalfont\noindent\addvspace{0.8ex}}%
-    {\normalfont\bfseries\makebox[\subnumberW][l]{\etocnumber}\etocname\ \DotsAndPage}%
+    {\normalfont\noindent\addvspace{0.05ex}}%
+    {\normalfont\footnotesize\bfseries\makebox[\subnumberW][l]{\etocnumber}\etocname\ \DotsAndPage}%
     {}%
     \etocsetstyle{subsection}%
     {}%
-    {\normalfont\noindent\addvspace{0.3ex}}%
-    {\normalfont\normalsize\hspace{1.2em}\makebox[\subsubnumberW][l]{\etocnumber}\etocname\ \DotsAndPage}%
+    {\normalfont\noindent\addvspace{0pt}}%
+    {\normalfont\footnotesize\hspace{1.2em}\makebox[\subsubnumberW][l]{\etocnumber}\etocname\ \DotsAndPage}%
     {}%
     \localtableofcontents
 }

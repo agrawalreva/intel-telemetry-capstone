@@ -661,16 +661,22 @@ Q12 & Spearman & 0.000 & 0.000  & 0.000 & 0.000 & Tie \\
 \end{table}
 
 \subsubsection{Per-query per-$\epsilon$ comparison}
+\small
 Tables~\ref{tab:per_query_eps_baseline} and \ref{tab:per_query_eps_advance} show the Laplace vs Gaussian comparison across the $\epsilon$ grid for the baseline and advance variants. Only a subsample of queries is shown: those where the advance variant performed significantly better than the baseline (e.g., comparable utility at lower $\epsilon$, or a distinct mechanism ordering at low $\epsilon$), so the two tables are directly comparable. The selected queries (Q1, Q5, Q7, Q8, Q9) are those where this advantage is clearest: for the median-relative-error queries (Q1, Q5, Q9), the advance variant's utility curve plateaus earlier, so comparable accuracy is achieved at $\epsilon = 0.5$ rather than $\epsilon = 1.0$; for the TVD queries (Q7, Q8), the advance implementation yields a different mechanism ordering at low $\epsilon$ (Gaussian can win before Laplace takes over at larger $\epsilon$) and strong utility preservation at the chosen $\epsilon$. Other queries either fail the pass threshold on mini for both variants (Q6 because Report Noisy Max releases a discrete winner per country, so the released ranking is highly sensitive to noise; Q12 because the noise scale is large relative to the spread of total power values, so the ranking is heavily perturbed), show similarly poor utility for both (Q4 because the conservative sensitivity used for vendor percentages yields large noise relative to the true values), or do not exhibit as large a margin of improvement for advance over baseline.
 
+\vspace{0.4em}
 \begin{table}[htbp]
 \centering
-\caption{Per-query, per-$\epsilon$ comparison of Laplace vs Gaussian (baseline variant). Subsample of queries where advance performed significantly better. RE = median relative error; TVD = total variation distance. ``W'': L = Laplace, G = Gaussian, T = Tie.}
-\label{tab:per_query_eps_baseline}
-\small
-\begin{tabular}{@{}cclrrrrl@{}}
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{0.88}
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\small\noindent\textbf{Table~\ref{tab:per_query_eps_baseline}}\\
+\footnotesize Baseline variant\\[0.5em]
+\footnotesize
+\begin{tabular}{@{}clcrrrl@{}}
 \toprule
-\textbf{Q} & \textbf{$\epsilon$} & \textbf{Metric} & \textbf{Gaussian} & \textbf{Laplace} & \textbf{Diff.} & \textbf{W} \\
+\textbf{Q} & \textbf{$\epsilon$} & \textbf{M} & \textbf{G} & \textbf{L} & \textbf{D} & \textbf{W} \\
 \midrule
 Q1 & 0.01 & RE & 1.000 & 0.848 & 0.152 & L \\
 Q1 & 0.05 & RE & 0.434 & 0.170 & 0.264 & L \\
@@ -679,9 +685,9 @@ Q1 & 0.50 & RE & 0.050 & 0.017 & 0.033 & L \\
 Q1 & 1.00 & RE & 0.026 & 0.009 & 0.018 & L \\
 Q1 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \midrule
-Q5 & 0.01 & RE & 18.165 & 6.763 & 11.401 & L \\
-Q5 & 0.05 & RE & 4.107 & 1.353 & 2.755 & L \\
-Q5 & 0.10 & RE & 2.153 & 1.000 & 1.153 & L \\
+Q5 & 0.01 & RE & 18.17 & 6.76 & 11.40 & L \\
+Q5 & 0.05 & RE & 4.11 & 1.35 & 2.76 & L \\
+Q5 & 0.10 & RE & 2.15 & 1.000 & 1.15 & L \\
 Q5 & 0.50 & RE & 0.556 & 0.368 & 0.187 & L \\
 Q5 & 1.00 & RE & 0.291 & 0.184 & 0.107 & L \\
 Q5 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
@@ -708,16 +714,17 @@ Q9 & 1.00 & RE & 0.109 & 0.029 & 0.080 & L \\
 Q9 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \bottomrule
 \end{tabular}
-\end{table}
-
-\begin{table}[htbp]
+\caption{RE = median rel.\ err.; TVD = total var.\ dist.; W: L = Laplace, G = Gaussian, T = Tie.}
+\label{tab:per_query_eps_baseline}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}
 \centering
-\caption{Per-query, per-$\epsilon$ comparison of Laplace vs Gaussian (advance variant). Same query subsample as Table~\ref{tab:per_query_eps_baseline}. Key differences: Q7 and Q8 show Gaussian winning at low $\epsilon$ before Laplace at larger $\epsilon$.}
-\label{tab:per_query_eps_advance}
-\small
-\begin{tabular}{@{}cclrrrrl@{}}
+\small\noindent\textbf{Table~\ref{tab:per_query_eps_advance}}\\
+\footnotesize Advance variant\\[0.5em]
+\footnotesize
+\begin{tabular}{@{}clcrrrl@{}}
 \toprule
-\textbf{Q} & \textbf{$\epsilon$} & \textbf{Metric} & \textbf{Gaussian} & \textbf{Laplace} & \textbf{Diff.} & \textbf{W} \\
+\textbf{Q} & \textbf{$\epsilon$} & \textbf{M} & \textbf{G} & \textbf{L} & \textbf{D} & \textbf{W} \\
 \midrule
 Q1 & 0.01 & RE & 1.000 & 0.848 & 0.152 & L \\
 Q1 & 0.05 & RE & 0.758 & 0.148 & 0.610 & L \\
@@ -726,11 +733,11 @@ Q1 & 0.50 & RE & 0.090 & 0.018 & 0.072 & L \\
 Q1 & 1.00 & RE & 0.035 & 0.005 & 0.029 & L \\
 Q1 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \midrule
-Q5 & 0.01 & RE & 18.165 & 6.763 & 11.401 & L \\
-Q5 & 0.05 & RE & 1.000  & 1.000 & 0.000 & T \\
-Q5 & 0.10 & RE & 1.000  & 1.000 & 0.000 & T \\
-Q5 & 0.50 & RE & 0.846  & 0.266 & 0.580 & L \\
-Q5 & 1.00 & RE & 0.570  & 0.073 & 0.497 & L \\
+Q5 & 0.01 & RE & 18.17 & 6.76 & 11.40 & L \\
+Q5 & 0.05 & RE & 1.000 & 1.000 & 0.000 & T \\
+Q5 & 0.10 & RE & 1.000 & 1.000 & 0.000 & T \\
+Q5 & 0.50 & RE & 0.846 & 0.266 & 0.580 & L \\
+Q5 & 1.00 & RE & 0.570 & 0.073 & 0.497 & L \\
 Q5 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \midrule
 Q7 & 0.01 & TVD & 0.674 & 0.676 & $-0.002$ & G \\
@@ -755,7 +762,15 @@ Q9 & 1.00 & RE & 0.142 & 0.022 & 0.120 & L \\
 Q9 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \bottomrule
 \end{tabular}
+\caption{Same queries, $\epsilon$ values, and column definitions as Table~\ref{tab:per_query_eps_baseline}. Note: for the TVD queries Q7 and Q8, Gaussian gives better utility at small $\epsilon$; Laplace gives better utility at larger $\epsilon$.}
+\label{tab:per_query_eps_advance}
+\end{minipage}\\[0.8em]
+\footnotesize
+\textbf{Legend:} Q = query; $\epsilon$ = privacy budget; M = metric (RE = median rel.\ err., TVD = total var.\ dist.); G = Gaussian, L = Laplace (metric value); D = G$-$L (negative $\Rightarrow$ Gaussian better); W = winner (L = Laplace, G = Gaussian, T = tie).
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1}
 \end{table}
+\normalsize
 
 \clearpage
 \subsection{Best Epsilon Selection}
@@ -795,7 +810,9 @@ The visualization pipeline treats the mini and full datasets differently by desi
 \subsection{Privacy-Utility Figures}
 \label{sec:results_figures}
 
-Figures~\ref{fig:privacy_utility_curves}--\ref{fig:pareto} show results for the baseline and advance variants (stacked for readability). As $\epsilon$ increases, median relative error and total variation distance decrease and Spearman $\rho$ increases in both variants. The advance variant typically reaches the same utility at a lower $\epsilon$ (e.g., 0.5 vs.\ 1.0), so its curves plateau earlier. The baseline vertical line at $\epsilon = 1.0$ and the advance selection at $\epsilon = 0.5$ indicate the operating points used for full-database runs.
+This section presents the main empirical tradeoff between privacy (smaller $\epsilon$) and utility on the mini database. The figures show how each query's error or correlation evolves across the $\epsilon$ grid, how the Laplace and Analytic Gaussian mechanisms compare, and how the chosen operating point sits relative to the Pareto frontier. All plots use the same $\epsilon$ range $\{0.01, 0.05, 0.1, 0.5, 1.0, \infty\}$ and the pass thresholds from Section~\ref{sec:utility_metrics}: median relative error $\leq 0.25$, total variation distance $\leq 0.15$, and Spearman $\rho \geq 0.5$.
+
+Figures~\ref{fig:privacy_utility_curves}--\ref{fig:pass_rate} pair the baseline and advance variants for the privacy-utility curves, the Laplace-vs-Gaussian comparison, and the pass rate. In each, the vertical line marks the selected $\epsilon$ for full-database runs: $\epsilon = 1.0$ for baseline and $\epsilon = 0.5$ for advance. As $\epsilon$ increases, median relative error and total variation distance decrease and Spearman $\rho$ increases; the advance variant typically attains comparable utility at a lower $\epsilon$, so its curves plateau earlier. Figure~\ref{fig:best_epsilon_fig} summarises the baseline variant's best-epsilon selection and Pareto frontier (privacy vs.\ utility preservation), corresponding to the operating point used for validation on the full database (Section~\ref{sec:full_results}).
 
 \begin{figure}[htbp]
 \centering
@@ -836,25 +853,14 @@ Figures~\ref{fig:privacy_utility_curves}--\ref{fig:pareto} show results for the 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.92\textwidth]{visuals/05_best_epsilon_summary_baseline_mini.png}
-\subcaption{Baseline variant ($\epsilon = 1.0$ selected)}
+\subcaption{Best $\epsilon$ per query and mechanism (baseline variant). Vertical line indicates the selected $\epsilon$ for full-database runs.}
 \vspace{0.5em}
-\includegraphics[width=0.92\textwidth]{visuals/05_best_epsilon_summary_advance_mini.png}
-\subcaption{Advance variant ($\epsilon = 0.5$ selected)}
-\caption{Best $\epsilon$ per query and mechanism. Vertical line indicates the selected $\epsilon$ for full-database runs.}
-\label{fig:best_epsilon_fig}
-\par\vspace{0.4em}\small\noindent\textbf{Interpretation.} Top: baseline selects $\epsilon = 1.0$; bottom: advance selects $\epsilon = 0.5$. Selection uses utility-preservation score vs $\epsilon = \infty$ (Table~\ref{tab:best_epsilon}); when no $\epsilon$ reaches 80\% mean preservation (as on mini), the logic picks the $\epsilon$ with highest score. Advance reaches its plateau earlier, so it achieves comparable accuracy at half the privacy cost.
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
 \includegraphics[width=0.92\textwidth]{visuals/06_pareto_frontier_baseline_mini.png}
-\subcaption{Baseline variant}
-\vspace{0.5em}
-\includegraphics[width=0.92\textwidth]{visuals/06_pareto_frontier_advance_mini.png}
-\subcaption{Advance variant}
-\caption{Pareto frontier: privacy (smaller $\epsilon$) vs utility preservation.}
+\subcaption{Pareto frontier: privacy (smaller $\epsilon$) vs utility preservation (baseline variant).}
+\caption{Baseline variant: best-epsilon selection and Pareto frontier.}
+\label{fig:best_epsilon_fig}
 \label{fig:pareto}
-\par\vspace{0.4em}\small\noindent\textbf{Interpretation.} Top: baseline ($\epsilon = 1.0$ on frontier); bottom: advance ($\epsilon = 0.5$ on frontier). Axes: privacy (smaller $\epsilon$ = stronger) vs fraction of $\epsilon = \infty$ utility retained. Points on the curve have no other $\epsilon$ in the grid with both strictly better privacy and strictly better utility. Advance achieves similar utility preservation at $\epsilon = 0.5$ as baseline at $\epsilon = 1.0$ (Section~\ref{sec:best_epsilon}).
+\par\vspace{0.4em}\small\noindent\textbf{Interpretation.} (a) Selection uses utility-preservation score vs $\epsilon = \infty$ (Table~\ref{tab:best_epsilon}); when no $\epsilon$ reaches 80\% mean preservation (as on mini), the logic picks the $\epsilon$ with highest score. The baseline selects $\epsilon = 1.0$ for full-database runs. (b) Axes: privacy (smaller $\epsilon$ = stronger) vs fraction of $\epsilon = \infty$ utility retained. Points on the curve have no other $\epsilon$ in the grid with both strictly better privacy and strictly better utility. The baseline operating point $\epsilon = 1.0$ lies on the frontier (Section~\ref{sec:best_epsilon}).
 \end{figure}
 
 \clearpage
@@ -937,6 +943,7 @@ Dhruv focused on the data infrastructure and workflow setup for the project. He 
 \textbf{Jordan Lambino.}
 Jordan concentrated on the visualization and presentation components of the project. He created the wireframe for the project website and maintained its content throughout development. To support testing of the workflow, he generated dummy data that allowed the pipeline to be run and validated during early stages. Jordan also implemented the Laplace mechanism and developed the trade-off visualizations used to compare different privacy settings, including the plots included in the final analysis. In addition, he reviewed and edited sections of the report and contributed to the poster and website materials.
 
+\newpage
 \subsection{Appendix B: Project Proposal}
 
 The \href{https://drive.google.com/file/d/1-uWLW_FLOvIJ-335J9SwYmFleC-lXZaR/view?usp=sharing}{Quarter~2 Project Proposal} describes the original motivation and scope for this project as submitted at the start of the quarter. It provides background on Intel's telemetry collection infrastructure, an introduction to Differential Privacy and its relevance to the problem, and a description of Private Evolution (AUG-PE) as the initially proposed algorithmic framework. The proposal also includes a discussion of DP-SGD as the prior state-of-the-art approach and the reasons it was deemed unsuitable for this setting, namely the requirement for model weight access and the associated computational costs. The proposed output at that stage consisted of an augmented PE algorithm adapted for high-dimensional, sequential telemetry events, together with a synthetic dataset generated on a subset of the Intel telemetry data. The final project diverged from this proposal by adopting query release under the Laplace and Analytic Gaussian mechanisms rather than synthetic data generation via Private Evolution, a decision motivated by the fixed query workload, the scale and sparsity of the telemetry corpus, and the superior auditability of direct sensitivity bounding over full distributional modelling. The proposal is included here for transparency and to document the evolution of the project's technical direction.
