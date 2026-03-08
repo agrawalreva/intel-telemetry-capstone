@@ -274,19 +274,26 @@ def create_comparison_table(gaussian_df: pd.DataFrame,
         metric_type = str(row.get("metric_type_g") or row.get("metric_type_l") or "")
 
         # Resolve column in merged frame
-        all_cols    = list(merged.columns)
-        primary_col = None
-        cfg         = METRIC_CONFIG.get(metric_type)
-        if cfg:
-            cand = cfg["primary_col"]
-            if f"{cand}_g" in all_cols:
-                primary_col = cand
-            else:
-                fallback = cfg.get("fallback_col")
-                if fallback and f"{fallback}_g" in all_cols:
-                    primary_col = fallback
+        cfg = METRIC_CONFIG.get(metric_type)
+        if cfg is None:
+            continue
 
-        if primary_col is None:
+        cand = cfg["primary_col"]
+        fallback = cfg.get("fallback_col")
+
+        gauss_val = pd.to_numeric(row.get(f"{cand}_g"), errors="coerce")
+        laplace_val = pd.to_numeric(row.get(f"{cand}_l"), errors="coerce")
+        primary_col = cand
+
+        if (pd.isna(gauss_val) or pd.isna(laplace_val)) and fallback:
+            gauss_fb = pd.to_numeric(row.get(f"{fallback}_g"), errors="coerce")
+            laplace_fb = pd.to_numeric(row.get(f"{fallback}_l"), errors="coerce")
+            if pd.notna(gauss_fb) and pd.notna(laplace_fb):
+                gauss_val = gauss_fb
+                laplace_val = laplace_fb
+                primary_col = fallback
+
+        if pd.isna(gauss_val) or pd.isna(laplace_val):
             continue
 
         gauss_val  = pd.to_numeric(row.get(f"{primary_col}_g"),  errors="coerce")
