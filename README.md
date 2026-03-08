@@ -156,6 +156,7 @@ intel-telemetry-capstone/
 ├── dummy/                             # Additional placeholder data for testing
 ├── query exploration/                 # Notes and exploratory SQL used during analysis
 ├── report/                            # Final written findings
+├── poster/                            # Poster of the presentation
 ├── roadmap/                           # Project timeline and development roadmap
 │
 ├── test/                              # Unit tests
