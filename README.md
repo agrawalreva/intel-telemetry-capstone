@@ -157,6 +157,7 @@ intel-telemetry-capstone/
 ├── query exploration/                 # Notes and exploratory SQL used during analysis
 ├── report/                            # Final written findings
 ├── poster/                            # Poster of the presentation
+├── website/                           # Website of our project
 ├── roadmap/                           # Project timeline and development roadmap
 │
 ├── test/                              # Unit tests
