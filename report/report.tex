@@ -662,18 +662,18 @@ Q12 & Spearman & 0.000 & 0.000  & 0.000 & 0.000 & Tie \\
 
 \subsubsection{Per-query per-$\epsilon$ comparison}
 \small
-Tables~\ref{tab:per_query_eps_baseline} and \ref{tab:per_query_eps_advance} show the Laplace vs Gaussian comparison across the $\epsilon$ grid for the baseline and advance variants. Only a subsample of queries is shown: those where the advance variant performed significantly better than the baseline (e.g., comparable utility at lower $\epsilon$, or a distinct mechanism ordering at low $\epsilon$), so the two tables are directly comparable. The selected queries (Q1, Q5, Q7, Q8, Q9) are those where this advantage is clearest: for the median-relative-error queries (Q1, Q5, Q9), the advance variant's utility curve plateaus earlier, so comparable accuracy is achieved at $\epsilon = 0.5$ rather than $\epsilon = 1.0$; for the TVD queries (Q7, Q8), the advance implementation yields a different mechanism ordering at low $\epsilon$ (Gaussian can win before Laplace takes over at larger $\epsilon$) and strong utility preservation at the chosen $\epsilon$. Other queries either fail the pass threshold on mini for both variants (Q6 because Report Noisy Max releases a discrete winner per country, so the released ranking is highly sensitive to noise; Q12 because the noise scale is large relative to the spread of total power values, so the ranking is heavily perturbed), show similarly poor utility for both (Q4 because the conservative sensitivity used for vendor percentages yields large noise relative to the true values), or do not exhibit as large a margin of improvement for advance over baseline.
+Across the $\epsilon$ grid on the mini database we run both the Laplace and the Analytic Gaussian mechanism on each query, so that their privacy--utility tradeoff can be compared directly. Which mechanism gives better utility then depends on both the query and the privacy budget $\epsilon$: the winner can change across the grid, and the advance variant often reaches similar accuracy at a smaller $\epsilon$. Tables~\ref{tab:per_query_eps_baseline} and \ref{tab:per_query_eps_advance} make this comparison explicit by listing, for each of several $\epsilon$ values, the metric value for each mechanism and the winner (L/G/T); the two tables share the same structure so baseline and advance are directly comparable. We show a subset of queries (Q1, Q5, Q7, Q8, Q9, Q10) where the advance advantage is clearest: on median-relative-error queries (Q1, Q5, Q9) the advance curve plateaus earlier, so comparable accuracy is achieved at $\epsilon = 0.5$ rather than $\epsilon = 1.0$; on TVD queries (Q7, Q8, Q10) the advance implementation yields a different mechanism ordering at low $\epsilon$ (Gaussian can win before Laplace takes over at larger $\epsilon$). Queries not shown either fail the pass threshold on mini for both variants (Q6, Q12), show similarly poor utility for both (Q4), or do not exhibit as large a margin of improvement for advance over baseline.
 
-\vspace{0.4em}
-\begin{table}[htbp]
+\vspace{0.2em}
+\begin{table}[h]
 \centering
-\setlength{\tabcolsep}{2.5pt}
-\renewcommand{\arraystretch}{0.88}
+\setlength{\tabcolsep}{1.8pt}
+\renewcommand{\arraystretch}{0.74}
 \begin{minipage}[t]{0.48\textwidth}
 \centering
-\small\noindent\textbf{Table~\ref{tab:per_query_eps_baseline}}\\
-\footnotesize Baseline variant\\[0.5em]
-\footnotesize
+\scriptsize\noindent\textbf{Table~\ref{tab:per_query_eps_baseline}}\\
+\scriptsize Baseline variant\\[0.35em]
+\scriptsize
 \begin{tabular}{@{}clcrrrl@{}}
 \toprule
 \textbf{Q} & \textbf{$\epsilon$} & \textbf{M} & \textbf{G} & \textbf{L} & \textbf{D} & \textbf{W} \\
@@ -712,6 +712,13 @@ Q9 & 0.10 & RE & 0.937 & 0.288 & 0.649 & L \\
 Q9 & 0.50 & RE & 0.208 & 0.058 & 0.150 & L \\
 Q9 & 1.00 & RE & 0.109 & 0.029 & 0.080 & L \\
 Q9 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
+\midrule
+Q10 & 0.01 & TVD & 0.534 & 0.390 & 0.143 & L \\
+Q10 & 0.05 & TVD & 0.525 & 0.165 & 0.360 & L \\
+Q10 & 0.10 & TVD & 0.378 & 0.096 & 0.283 & L \\
+Q10 & 0.50 & TVD & 0.084 & 0.022 & 0.062 & L \\
+Q10 & 1.00 & TVD & 0.044 & 0.011 & 0.033 & L \\
+Q10 & $\infty$ & TVD & 0.000 & 0.000 & 0.000 & T \\
 \bottomrule
 \end{tabular}
 \caption{RE = median rel.\ err.; TVD = total var.\ dist.; W: L = Laplace, G = Gaussian, T = Tie.}
@@ -719,9 +726,9 @@ Q9 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
 \end{minipage}\hfill
 \begin{minipage}[t]{0.48\textwidth}
 \centering
-\small\noindent\textbf{Table~\ref{tab:per_query_eps_advance}}\\
-\footnotesize Advance variant\\[0.5em]
-\footnotesize
+\scriptsize\noindent\textbf{Table~\ref{tab:per_query_eps_advance}}\\
+\scriptsize Advance variant\\[0.35em]
+\scriptsize
 \begin{tabular}{@{}clcrrrl@{}}
 \toprule
 \textbf{Q} & \textbf{$\epsilon$} & \textbf{M} & \textbf{G} & \textbf{L} & \textbf{D} & \textbf{W} \\
@@ -760,12 +767,19 @@ Q9 & 0.10 & RE & 1.000 & 0.296 & 0.704 & L \\
 Q9 & 0.50 & RE & 0.282 & 0.061 & 0.221 & L \\
 Q9 & 1.00 & RE & 0.142 & 0.022 & 0.120 & L \\
 Q9 & $\infty$ & RE & 0.000 & 0.000 & 0.000 & T \\
+\midrule
+Q10 & 0.01 & TVD & 0.534 & 0.390 & 0.143 & L \\
+Q10 & 0.05 & TVD & 0.129 & 0.562 & $-0.433$ & G \\
+Q10 & 0.10 & TVD & 0.191 & 0.077 & 0.114 & L \\
+Q10 & 0.50 & TVD & 0.022 & 0.012 & 0.009 & L \\
+Q10 & 1.00 & TVD & 0.041 & 0.020 & 0.021 & L \\
+Q10 & $\infty$ & TVD & 0.000 & 0.000 & 0.000 & T \\
 \bottomrule
 \end{tabular}
-\caption{Same queries, $\epsilon$ values, and column definitions as Table~\ref{tab:per_query_eps_baseline}. Note: for the TVD queries Q7 and Q8, Gaussian gives better utility at small $\epsilon$; Laplace gives better utility at larger $\epsilon$.}
+\caption{Same queries, $\epsilon$ values, and column definitions as Table~\ref{tab:per_query_eps_baseline}. Note: for the TVD queries Q7, Q8, and Q10, Gaussian gives better utility at small $\epsilon$; Laplace gives better utility at larger $\epsilon$.}
 \label{tab:per_query_eps_advance}
-\end{minipage}\\[0.8em]
-\footnotesize
+\end{minipage}\\[0.45em]
+\scriptsize
 \textbf{Legend:} Q = query; $\epsilon$ = privacy budget; M = metric (RE = median rel.\ err., TVD = total var.\ dist.); G = Gaussian, L = Laplace (metric value); D = G$-$L (negative $\Rightarrow$ Gaussian better); W = winner (L = Laplace, G = Gaussian, T = tie).
 \setlength{\tabcolsep}{6pt}
 \renewcommand{\arraystretch}{1}
@@ -795,7 +809,7 @@ Advance  & Gaussian & 0.5 & $-12.32$ & $-49.00$ & 0.1 & $-28.91$ \\
 \end{tabular}
 \end{table}
 
-The \textbf{Mean util.} and \textbf{Min util.} columns in Table~\ref{tab:best_epsilon} report negative values (e.g., $-6.86$, $-47.42$). These numbers come from the utility-preservation scoring scale: each query's DP output is compared to the no-noise baseline at $\epsilon = \infty$, and the score measures how much of that baseline utility is preserved. When the DP output is far from the baseline (e.g., at low $\epsilon$ or for queries that are inherently noisy), the preserved fraction can be negative or below zero on this scale. A negative value does not mean that the released answers are harmful; it means that on mini, no $\epsilon$ in the grid reached the 80\% mean-preservation target, so the selection logic correctly falls back to the $\epsilon$ with the highest score (best available). Both chosen operating points ($\epsilon = 1.0$ for baseline, $\epsilon = 0.5$ for advance) are fully differentially private; only $\epsilon = \infty$ is non-private.
+The \textbf{Mean util.} and \textbf{Min util.} columns in Table~\ref{tab:best_epsilon} report negative values (e.g., $-6.86$, $-47.42$). These numbers come from the utility-preservation scoring scale: each query's DP output is compared to the no-noise baseline at $\epsilon = \infty$, and the score measures how much of that baseline utility is preserved. When the DP output deviates substantially from the baseline (e.g., at low $\epsilon$ or for queries that are inherently noisy), the preserved fraction can be negative or below zero on this scale. A negative value does not mean that the released answers are harmful; it means that on mini, no $\epsilon$ in the grid reached the 80\% mean-preservation target, so the selection logic correctly falls back to the $\epsilon$ with the highest score (best available). Both chosen operating points ($\epsilon = 1.0$ for baseline, $\epsilon = 0.5$ for advance) are fully differentially private; only $\epsilon = \infty$ is non-private.
 
 \subsection{Full-Database Results at $\epsilon = 1.0$}
 \label{sec:full_results}
