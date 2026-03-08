@@ -1,5 +1,5 @@
 1:"$Sreact.fragment"
 2:I[57121,[],""]
 3:I[74581,[],""]
-:HL["/intel-telemetry-capstone/_next/static/css/6b4f1deec1e77cc5.css","style"]
-0:{"buildId":"X5DBX5rGsI-cUc9wsUsI2","rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/intel-telemetry-capstone/_next/static/css/6b4f1deec1e77cc5.css","precedence":"next"}]],["$","html",null,{"lang":"en","children":["$","body",null,{"className":"__className_bb3da6","children":["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]}]}]]}],"loading":null,"isPartial":false}
+:HL["/intel-telemetry-capstone/_next/static/css/160809cb97794cd0.css","style"]
+0:{"buildId":"ntmgGSjCGfZ_BnJWYx7Yg","rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/intel-telemetry-capstone/_next/static/css/160809cb97794cd0.css","precedence":"next"}]],["$","html",null,{"lang":"en","children":["$","body",null,{"className":"__className_bb3da6","children":["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]}]}]]}],"loading":null,"isPartial":false}
