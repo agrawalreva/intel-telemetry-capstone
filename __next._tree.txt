@@ -1,3 +1,3 @@
 :HL["/intel-telemetry-capstone/_next/static/css/6b4f1deec1e77cc5.css","style"]
 :HL["/intel-telemetry-capstone/_next/static/css/4c0e1a3010175a2e.css","style"]
-0:{"buildId":"VLH3RMiXBzxbbmG43_10Y","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
+0:{"buildId":"X5DBX5rGsI-cUc9wsUsI2","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
