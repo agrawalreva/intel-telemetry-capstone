@@ -1,3 +1,3 @@
 :HL["/intel-telemetry/_next/static/css/e042f94d2dcd8359.css","style"]
 :HL["/intel-telemetry/_next/static/css/dbd0362e9e61144b.css","style"]
-0:{"buildId":"0KuR5mFdFlUiurHCGuMZx","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
+0:{"buildId":"F1B37HJo_Ez2hyDv6WqpS","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
