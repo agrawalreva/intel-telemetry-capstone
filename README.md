@@ -44,13 +44,13 @@ This project implements a complete differential privacy pipeline for analyzing I
 
 ### Key Features
 
-✅ **Two-branch development strategy** — baseline and advance variants for fast iteration and optimised production runs  
-✅ **Epsilon grid** — 6 values from 0.01 to ∞ for a smooth privacy-utility curve  
-✅ **Per-query evaluation metrics** — metric chosen to align with the shared evaluation framework (RE, TVD, Spearman ρ)  
-✅ **Analytic Gaussian calibration** — uses Balle & Wang (2018) tight sigma calibration (10–30% less noise vs. classic formula)  
-✅ **Reproducible results** — fixed seeded for-loop, same pattern as the telemetry project  
-✅ **Production-ready code** — idempotent scripts, error handling, logging  
-✅ **Well-documented** — inline comments, architecture diagrams, usage examples  
+**Two-branch development strategy** — baseline and advance variants for fast iteration and optimised production runs  
+**Epsilon grid** — 6 values from 0.01 to ∞ for a smooth privacy-utility curve  
+**Per-query evaluation metrics** — metric chosen to align with the shared evaluation framework (RE, TVD, Spearman ρ)  
+**Analytic Gaussian calibration** — uses Balle & Wang (2018) tight sigma calibration (10–30% less noise vs. classic formula)  
+**Reproducible results** — fixed seeded for-loop, same pattern as the telemetry project  
+**Production-ready code** — idempotent scripts, error handling, logging  
+**Well-documented** — inline comments, architecture diagrams, usage examples  
 
 ---
 
