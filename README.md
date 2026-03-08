@@ -44,13 +44,13 @@ This project implements a complete differential privacy pipeline for analyzing I
 
 ### Key Features
 
-✅ **Two-branch development strategy** — baseline and advance variants for fast iteration and optimised production runs  
-✅ **Epsilon grid** — 6 values from 0.01 to ∞ for a smooth privacy-utility curve  
-✅ **Per-query evaluation metrics** — metric chosen to align with the shared evaluation framework (RE, TVD, Spearman ρ)  
-✅ **Analytic Gaussian calibration** — uses Balle & Wang (2018) tight sigma calibration (10–30% less noise vs. classic formula)  
-✅ **Reproducible results** — fixed seeded for-loop, same pattern as the telemetry project  
-✅ **Production-ready code** — idempotent scripts, error handling, logging  
-✅ **Well-documented** — inline comments, architecture diagrams, usage examples  
+- **Two-branch development strategy** — baseline and advance variants for fast iteration and optimised production runs  
+- **Epsilon grid** — 6 values from 0.01 to ∞ for a smooth privacy-utility curve  
+- **Per-query evaluation metrics** — metric chosen to align with the shared evaluation framework (RE, TVD, Spearman ρ)  
+- **Analytic Gaussian calibration** — uses Balle & Wang (2018) tight sigma calibration (10–30% less noise vs. classic formula)  
+- **Reproducible results** — fixed seeded for-loop, same pattern as the telemetry project  
+- **Production-ready code** — idempotent scripts, error handling, logging  
+- **Well-documented** — inline comments, architecture diagrams, usage examples  
 
 ---
 
@@ -156,6 +156,7 @@ intel-telemetry-capstone/
 ├── dummy/                             # Additional placeholder data for testing
 ├── query exploration/                 # Notes and exploratory SQL used during analysis
 ├── report/                            # Final written findings
+├── poster/                            # Poster of the presentation
 ├── roadmap/                           # Project timeline and development roadmap
 │
 ├── test/                              # Unit tests
@@ -442,7 +443,7 @@ graph TD
 
 The scripts in this project tell a single story: *can we add mathematically guaranteed privacy noise to Intel telemetry analytics while keeping the results useful?* Each script plays a specific role in that story, and they are designed to run in sequence.
 
-It starts with data — either real telemetry exported from DuckDB, or the synthetic dummy CSVs committed in this repository. Those clean query results become the baseline: the unperturbed truth we are trying to protect. From there, two DP mechanisms (Gaussian and Laplace) each independently add calibrated noise across a range of privacy budgets (epsilon values), producing dozens of "what if we had privatised this?" versions of every query. The evaluation scripts then measure how badly each version drifted from the truth, identify the strongest privacy setting that still keeps results within an acceptable range, and finally render the full privacy-utility tradeoff as a set of publication-ready figures.
+It starts with data - either real telemetry exported from DuckDB, or the synthetic dummy CSVs committed in this repository. Those clean query results become the baseline: the unperturbed truth we are trying to protect. From there, two DP mechanisms (Gaussian and Laplace) each independently add calibrated noise across a range of privacy budgets (epsilon values), producing dozens of "what if we had privatised this?" versions of every query. The evaluation scripts then measure how badly each version drifted from the truth, identify the strongest privacy setting that still keeps results within an acceptable range, and finally render the full privacy-utility tradeoff as a set of publication-ready figures.
 
 The complete written analysis — including findings, design decisions, and interpretation of results — lives in the **`report/`** folder at the repo root.
 
